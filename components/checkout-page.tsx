@@ -24,7 +24,7 @@ export function CheckoutPage() {
   const product = products.find((item) => item.slug === slug);
   const completedOrder = remoteOrder ?? orders.find((order) => order.id === completedOrderId);
   const liveMode = process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay";
-  const remoteProduct = Boolean(product && /^[0-9a-f-]{36}$/i.test(product.id));
+  const remoteProduct = Boolean(product?.isRemote);
   const requiresAccount = Boolean((supabaseConfigured || liveMode) && remoteProduct);
   const unavailableLiveProduct = Boolean(liveMode && product && !remoteProduct);
 

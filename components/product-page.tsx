@@ -16,7 +16,7 @@ export function ProductPage() {
   const { products, favorites, toggleFavorite, ready, loadProductContent, supabaseConfigured, user } = useMarketplace();
   const liveMode = process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay";
   const product = products.find((item) => item.slug === slug);
-  const liveProduct = Boolean(product && /^[0-9a-f-]{36}$/i.test(product.id));
+  const liveProduct = Boolean(product?.isRemote);
   const [publicContent, setPublicContent] = useState<ProductContent | null>(null);
   useEffect(() => {
     if (product?.kind !== "membership") return;

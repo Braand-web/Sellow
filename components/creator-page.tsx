@@ -11,7 +11,7 @@ export function CreatorPage() {
   const { slug } = useParams<{ slug: string }>();
   const { products, user, ready } = useMarketplace();
   const liveMode = process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay";
-  const creatorProducts = products.filter((item) => item.creatorSlug === slug && item.published && (!liveMode || /^[0-9a-f-]{36}$/i.test(item.id)));
+  const creatorProducts = products.filter((item) => item.creatorSlug === slug && item.published && (!liveMode || item.isRemote));
   const creator = user?.slug === slug
     ? user
     : seedCreators.find((item) => item.slug === slug) ?? (creatorProducts[0] ? {

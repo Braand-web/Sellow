@@ -38,7 +38,7 @@ export function HomePage() {
   const [tag, setTag] = useState("");
   const [sort, setSort] = useState("featured");
   const catalogProducts = useMemo(
-    () => products.filter((product) => product.published && (!liveMode || /^[0-9a-f-]{36}$/i.test(product.id))),
+    () => products.filter((product) => product.published && (!liveMode || product.isRemote)),
     [liveMode, products],
   );
 

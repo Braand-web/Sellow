@@ -64,7 +64,7 @@ const MarketplaceContext = createContext<MarketplaceContextValue | null>(null);
 
 function mergeProducts(remote: Product[], local: Product[]) {
   const byId = new Map<string, Product>();
-  [...seedProducts, ...remote, ...local].forEach((product) => byId.set(product.id, publicProduct(product)));
+  [...seedProducts, ...local, ...remote].forEach((product) => byId.set(product.id, publicProduct(product)));
   return [...byId.values()];
 }
 
@@ -126,6 +126,7 @@ function productFromRow(row: Record<string, unknown>): Product {
     published: Boolean(row.published),
     createdAt: String(row.created_at ?? new Date().toISOString()),
     details: (row.details as Product["details"]) ?? {},
+    isRemote: true,
   };
 }
 
@@ -431,6 +432,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         published: false,
         createdAt: new Date().toISOString(),
         details: input.details ?? (input.kind === "membership" ? { interval: "mois" } : {}),
+        isRemote: Boolean(supabase && !user.isDemo),
       };
 
       if (supabase && !user.isDemo) {
@@ -574,7 +576,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
 
   const purchase = useCallback(async ({ product, buyerEmail, shippingAddress, buyerNote }: PurchaseInput) => {
     let order: Order;
-    const remoteProduct = Boolean(supabase && /^[0-9a-f-]{36}$/i.test(product.id));
+    const remoteProduct = Boolean(supabase && product.isRemote);
     if (process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay" && !remoteProduct) {
       throw new Error("Ce produit n’est pas disponible pour le paiement réel.");
     }
@@ -644,7 +646,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadProductContent = useCallback(async (product: Product) => {
-    const isRemote = Boolean(supabase && /^[0-9a-f-]{36}$/i.test(product.id));
+    const isRemote = Boolean(supabase && product.isRemote);
     if (isRemote) {
       const response = await fetch(`/api/products/${encodeURIComponent(product.id)}/content`, { cache: "no-store" });
       const payload = await response.json();

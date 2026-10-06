@@ -92,6 +92,7 @@ export type Product = {
   createdAt: string;
   featured?: boolean;
   details?: ProductDetails;
+  isRemote?: boolean;
 };
 
 export type Creator = {
