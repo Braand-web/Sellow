@@ -96,6 +96,14 @@ create table if not exists public.course_progress (
   primary key (buyer_id, course_id)
 );
 
+-- Grant only the operations needed by the public catalogue and signed-in users.
+-- New Supabase projects may not grant Data API access to public tables by default.
+grant select on public.creators, public.products to anon;
+grant select, insert, update, delete on public.creators, public.products to authenticated;
+grant select on public.orders, public.entitlements to authenticated;
+grant all privileges on public.creators, public.products, public.orders, public.entitlements,
+  public.product_contents, public.membership_courses, public.course_progress to service_role;
+
 -- Move legacy course and member bodies out of the publicly readable products row.
 insert into public.product_contents (product_id, content)
 select
