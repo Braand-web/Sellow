@@ -1,0 +1,108 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowLeft } from "@phosphor-icons/react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useMarketplace } from "@/app/providers";
+import type { ProductContent } from "@/lib/types";
+import { emptyProductContent, hasPublishableContent } from "@/lib/product-content";
+import { ProductContentEditor } from "@/components/product-content-editor";
+
+const categories = ["Design", "Photographie", "Illustration", "Développement", "Musique", "Papeterie", "Créativité"];
+
+export function EditProductPage() {
+  const { productId } = useParams<{ productId: string }>();
+  const router = useRouter();
+  const { user, products, ready, updateProduct, loadProductContent, saveProductContent } = useMarketplace();
+  const product = useMemo(() => products.find((item) => item.id === productId), [productId, products]);
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("Design");
+  const [tags, setTags] = useState("");
+  const [price, setPrice] = useState("0");
+  const [currency, setCurrency] = useState("EUR");
+  const [content, setContent] = useState<ProductContent>(emptyProductContent);
+  const [loadedContentId, setLoadedContentId] = useState("");
+  const [contentFiles, setContentFiles] = useState<Record<string, File>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!user) router.replace("/connexion?next=%2Fstudio");
+    else if (product && product.creatorId !== user.id) router.replace("/studio");
+  }, [product, ready, router, user]);
+
+  useEffect(() => {
+    if (!product) return;
+    // Populate the editor once the product is available from local storage or Supabase.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTitle(product.title);
+    setSubtitle(product.subtitle);
+    setDescription(product.description);
+    setCategory(product.category);
+    setTags(product.tags.join(", "));
+    setPrice(String(product.price));
+    setCurrency(product.currency);
+    if (product.kind === "course" || product.kind === "membership") {
+      void loadProductContent(product)
+        .then((nextContent) => { setContent(nextContent); setLoadedContentId(product.id); })
+        .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Le contenu n’a pas pu être chargé."));
+    }
+  }, [loadProductContent, product]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!product) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (product.kind === "course" && product.published && !hasPublishableContent(content, product.kind)) {
+        throw new Error("Ajoutez au moins une leçon avec du texte, une vidéo ou un fichier avant d’enregistrer ce cours publié.");
+      }
+      if (product.kind === "course" || product.kind === "membership") await saveProductContent(product.id, content, contentFiles);
+      await updateProduct(product.id, {
+        title,
+        subtitle,
+        description,
+        category,
+        tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+        price: Number(price),
+        currency,
+        cover: product.cover,
+        coverLabel: `${title.trim().toLocaleUpperCase("fr-FR").slice(0, 22)}\nÀ DÉCOUVRIR`,
+      });
+      router.push("/studio");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Les modifications n’ont pas pu être enregistrées.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!ready || !user || !product || product.creatorId !== user.id) return <div className="page-wrap"><div className="loading-card" /></div>;
+  const contentReady = (product.kind !== "course" && product.kind !== "membership") || loadedContentId === product.id;
+
+  return (
+    <div className="page-wrap new-product-wrap">
+      <nav className="breadcrumbs" aria-label="Fil d’Ariane"><Link href="/studio"><ArrowLeft size={14} /> Tableau de bord</Link><span>›</span><span>Modifier le produit</span></nav>
+      <div className="page-title-row"><div><p className="page-eyebrow">Fiche créateur</p><h1 className="page-title">Modifier « {product.title} »</h1><p className="page-lead">Le type reste {product.kind === "download" ? "un fichier numérique" : product.kind === "course" ? "un cours" : product.kind === "membership" ? "un abonnement" : product.kind === "physical" ? "un objet physique" : "un service"}.</p></div></div>
+      <form className="new-product-form" onSubmit={submit}>
+        <section className="new-product-main">
+          <div className="form-panel"><div className="form-section-heading"><span>01</span><div><h2>Informations du produit</h2><p>Le type de produit ne peut pas être modifié après création.</p></div></div><div className="form-stack">
+            <div className="field-group"><label htmlFor="edit-title">Nom du produit</label><input className="field-input" id="edit-title" required minLength={3} maxLength={70} value={title} onChange={(event) => setTitle(event.target.value)} /></div>
+            <div className="field-group"><label htmlFor="edit-subtitle">Phrase de présentation</label><input className="field-input" id="edit-subtitle" required maxLength={110} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} /></div>
+            <div className="field-group"><label htmlFor="edit-description">Description</label><textarea className="field-textarea" id="edit-description" required minLength={20} value={description} onChange={(event) => setDescription(event.target.value)} /></div>
+            <div className="form-two-col"><div className="field-group"><label htmlFor="edit-category">Catégorie</label><select className="field-select" id="edit-category" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></div><div className="field-group"><label htmlFor="edit-tags">Mots clés</label><input className="field-input" id="edit-tags" value={tags} onChange={(event) => setTags(event.target.value)} /><span className="field-help">Séparez les mots clés par une virgule.</span></div></div>
+            <div className="form-two-col"><div className="field-group"><label htmlFor="edit-price">Prix</label><input className="field-input" id="edit-price" type="number" min="0" step="0.01" required value={price} onChange={(event) => setPrice(event.target.value)} /></div><div className="field-group"><label htmlFor="edit-currency">Devise</label><select className="field-select" id="edit-currency" value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="EUR">EUR · Euro</option><option value="USD">USD · Dollar américain</option><option value="XOF">XOF · Franc CFA</option><option value="MAD">MAD · Dirham marocain</option></select></div></div>
+          </div></div>
+
+          {(product.kind === "course" || product.kind === "membership") && <ProductContentEditor kind={product.kind} value={content} products={products} creatorId={user.id} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}
+        </section>
+        <aside className="new-product-aside"><div className="demo-note"><span /> Les changements sont enregistrés avec votre produit.</div>{!contentReady && <p className="field-help" role="status">Chargement du contenu privé…</p>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-dark publish-button" type="submit" disabled={busy || !contentReady}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button><Link className="text-link cancel-link" href="/studio">Annuler</Link></aside>
+      </form>
+    </div>
+  );
+}
