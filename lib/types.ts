@@ -1,3 +1,5 @@
+import type { RichTextDocument } from "@/lib/rich-text";
+
 export const productKinds = [
   "download",
   "course",
@@ -12,6 +14,7 @@ export type CourseLesson = {
   id: string;
   title: string;
   description: string;
+  descriptionContent?: RichTextDocument;
   durationMinutes?: number;
   videoUrl?: string;
   resources?: LessonResource[];
@@ -35,6 +38,7 @@ export type MembershipPost = {
   id: string;
   title: string;
   body: string;
+  bodyContent?: RichTextDocument;
   createdAt: string;
   videoUrl?: string;
   resources?: LessonResource[];
@@ -69,6 +73,7 @@ export type Product = {
   title: string;
   subtitle: string;
   description: string;
+  descriptionContent?: RichTextDocument;
   kind: ProductKind;
   category: string;
   tags: string[];
@@ -111,10 +116,13 @@ export type Order = {
   creatorName: string;
   creatorSlug: string;
   buyerEmail: string;
-  status: "paid_demo" | "canceled_demo";
+  status: "pending" | "failed" | "paid_demo" | "paid" | "refunded" | "canceled" | "canceled_demo";
   amount: number;
   currency: string;
   createdAt: string;
+  membershipExpiresAt?: string;
+  membershipRenewalCancelledAt?: string;
+  checkoutUrl?: string;
   shippingAddress?: string;
   buyerNote?: string;
   isRemote?: boolean;
@@ -123,7 +131,12 @@ export type Order = {
 export type NewProductInput = Pick<
   Product,
   "title" | "subtitle" | "description" | "kind" | "category" | "tags" | "price" | "currency" | "cover" | "coverLabel"
-> & { file?: File | null; details?: ProductDetails };
+> & {
+  file?: File | null;
+  details?: ProductDetails;
+  descriptionContent?: RichTextDocument;
+  descriptionFiles?: Record<string, File>;
+};
 
 export type EditableProductInput = Omit<NewProductInput, "kind" | "file">;
 

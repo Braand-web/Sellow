@@ -107,6 +107,42 @@ test("les pages publiques affichent des métadonnées propres au contenu", async
   await expect(page).toHaveTitle(/Inès Laurent/);
 });
 
+test("l’éditeur enrichit la description, insère une image et explique l’Assistant IA non configuré", async ({ page }) => {
+  const email = `editeur-${Date.now()}@exemple.test`;
+  await registerDemoCreator(page, email, "Awa Éditrice");
+  await page.goto("/studio/nouveau");
+  await page.getByLabel("Nom du produit").fill("Description mise en forme");
+  await page.getByLabel("Phrase de présentation").fill("Une courte phrase pour présenter ce produit.");
+
+  const description = page.locator('[contenteditable="true"][id="product-description"]');
+  await description.fill("Une description riche qui présente clairement ce produit.");
+  await description.press("Control+A");
+  await page.getByRole("button", { name: "Gras" }).click();
+  await expect(description.locator("strong")).toHaveText("Une description riche qui présente clairement ce produit.");
+  await description.press("ArrowRight");
+
+  await page.getByRole("button", { name: "Assistant IA" }).click();
+  await expect(page.getByText("Un fournisseur d’IA devra être configuré pour activer la rédaction et l’amélioration de ce texte.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Rédiger" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Améliorer" })).toBeDisabled();
+  await page.getByRole("button", { name: "Fermer l’assistant IA" }).click();
+
+  await page.getByRole("button", { name: "Insérer une image" }).click();
+  await page.getByLabel("Téléverser une image").setInputFiles({
+    name: "atelier.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+nmqkAAAAASUVORK5CYII=", "base64"),
+  });
+  await page.getByRole("button", { name: "Insérer", exact: true }).click();
+  await expect(description.locator("img")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Publier le produit" }).click();
+  await expect(page.getByRole("heading", { name: "Votre espace créateur" })).toBeVisible();
+  await page.getByRole("link", { name: "Voir Description mise en forme" }).click();
+  await expect(page.locator(".detail-description strong")).toHaveText("Une description riche qui présente clairement ce produit.");
+  await expect(page.locator(".detail-description img")).toHaveAttribute("alt", "");
+});
+
 test("le créateur modifie le plan du cours, publie, puis l’acheteur retrouve les leçons", async ({ page }) => {
   await mockYouTubePlayer(page);
   await mockVimeoPlayer(page);
@@ -117,14 +153,14 @@ test("le créateur modifie le plan du cours, publie, puis l’acheteur retrouve 
   await page.getByRole("button", { name: /Cours/ }).click();
   await page.getByLabel("Nom du produit").fill("Cours de test créateur");
   await page.getByLabel("Phrase de présentation").fill("Un cours de démonstration éditable.");
-  await page.getByLabel("Description").fill("Un cours pratique pour apprendre une méthode simple et la réutiliser sur son prochain projet.");
-  await page.getByRole("button", { name: "Enregistrer le brouillon" }).click();
+  await page.getByRole("textbox", { name: "Description" }).fill("Un cours pratique pour apprendre une méthode simple et la réutiliser sur son prochain projet.");
+  await page.getByRole("button", { name: "Enregistrer comme brouillon" }).click();
   await expect(page.getByRole("heading", { name: "Votre espace créateur" })).toBeVisible();
   await page.getByRole("link", { name: "Modifier Cours de test créateur" }).click();
   await page.getByRole("button", { name: "Ajouter un module" }).click();
   await page.getByRole("button", { name: "Ajouter une leçon" }).click();
   await page.getByLabel("Titre de la leçon").fill("Les bases du projet");
-  await page.locator('textarea[id^="lesson-text-"]').fill("Choisissez une idée et posez ses premières étapes.");
+  await page.locator('[contenteditable="true"][id^="lesson-text-"]').fill("Choisissez une idée et posez ses premières étapes.");
   await page.locator('input[id^="lesson-video-"]').fill("https://www.youtube.com/watch?v=qy4I7y77gTE");
   await page.getByLabel("Durée (minutes)").fill("14");
   await page.getByRole("button", { name: "Enregistrer les modifications" }).click();
@@ -133,7 +169,7 @@ test("le créateur modifie le plan du cours, publie, puis l’acheteur retrouve 
   await page.getByRole("button", { name: "Ajouter une leçon" }).click();
   await expect(page.locator('input[id^="lesson-title-"]')).toHaveCount(2);
   await page.locator('input[id^="lesson-title-"]').nth(1).fill("Suite vidéo");
-  await page.locator('textarea[id^="lesson-text-"]').nth(1).fill("Une seconde vidéo pour vérifier le changement de source.");
+  await page.locator('[contenteditable="true"][id^="lesson-text-"]').nth(1).fill("Une seconde vidéo pour vérifier le changement de source.");
   await page.locator('input[id^="lesson-video-"]').nth(1).fill("https://vimeo.com/76979871");
   await page.getByRole("button", { name: "Ajouter une leçon" }).click();
   await expect(page.locator('input[id^="lesson-title-"]')).toHaveCount(3);
@@ -181,23 +217,23 @@ test("les publications d’abonnement se créent, se modifient et se suppriment"
   await page.getByRole("button", { name: /Abonnement/ }).click();
   await page.getByLabel("Nom du produit").fill("Notes de l’atelier membre");
   await page.getByLabel("Phrase de présentation").fill("Une publication créative chaque mois.");
-  await page.getByLabel("Description").fill("Un espace membre avec des notes créatives, des exercices et des références à explorer.");
-  await page.getByRole("button", { name: "Enregistrer le brouillon" }).click();
+  await page.getByRole("textbox", { name: "Description" }).fill("Un espace membre avec des notes créatives, des exercices et des références à explorer.");
+  await page.getByRole("button", { name: "Enregistrer comme brouillon" }).click();
   await page.getByRole("link", { name: "Modifier Notes de l’atelier membre" }).click();
   await page.getByRole("button", { name: "Ajouter une publication" }).click();
   await page.locator('input[id^="post-title-"]').fill("Publication à conserver");
-  await page.locator('textarea[id^="post-body-"]').fill("Un premier texte pour les personnes membres.");
+  await page.locator('[contenteditable="true"][id^="post-body-"]').fill("Un premier texte pour les personnes membres.");
   await page.locator('input[id^="post-video-"]').fill("https://vimeo.com/76979871");
   await page.getByRole("button", { name: "Publier cette publication" }).click();
   await page.getByRole("button", { name: "Enregistrer les modifications" }).click();
   await page.getByRole("link", { name: "Modifier Notes de l’atelier membre" }).click();
   await expect(page.locator('input[id^="post-title-"]')).toHaveValue("Publication à conserver");
   await page.locator('input[id^="post-title-"]').fill("Publication mise à jour");
-  await page.locator('textarea[id^="post-body-"]').fill("Le contenu a bien été modifié par la créatrice.");
+  await page.locator('[contenteditable="true"][id^="post-body-"]').fill("Le contenu a bien été modifié par la créatrice.");
   await page.getByRole("button", { name: "Ajouter une publication" }).click();
   await expect(page.locator('input[id^="post-title-"]')).toHaveCount(2);
   await page.locator('input[id^="post-title-"]').nth(1).fill("Publication sans vitesse");
-  await page.locator('textarea[id^="post-body-"]').nth(1).fill("Cette vidéo ne propose pas de réglage de vitesse.");
+  await page.locator('[contenteditable="true"][id^="post-body-"]').nth(1).fill("Cette vidéo ne propose pas de réglage de vitesse.");
   await page.locator('input[id^="post-video-"]').nth(1).fill("https://vimeo.com/76979872");
   await page.locator(".publish-post").nth(1).click();
   await page.getByRole("button", { name: "Ajouter une publication" }).click();
@@ -262,7 +298,7 @@ test("l’annulation simulée ferme l’accès à l’abonnement", async ({ page
   await page.getByRole("link", { name: "Espace membre" }).click();
   await expect(page.getByRole("heading", { name: "Une idée pour le prochain dimanche" })).toBeVisible();
   await page.getByRole("button", { name: "Annuler l’abonnement simulé" }).click();
-  await expect(page.getByText("L’accès aux publications est fermé.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Votre accès est arrivé à son terme" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Une idée pour le prochain dimanche" })).toHaveCount(0);
 });
 

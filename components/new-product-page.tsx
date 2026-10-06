@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, BookOpenText, Camera, DownloadSimple, Package, Sparkle } from "@phosphor-icons/react";
 import type { ElementType } from "react";
 import { useMarketplace } from "@/app/providers";
 import { kindLabels, productKinds, type ProductContent, type ProductKind } from "@/lib/types";
-import { emptyProductContent } from "@/lib/product-content";
+import { emptyProductContent, hasPublishableContent } from "@/lib/product-content";
 import { ProductContentEditor } from "@/components/product-content-editor";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { documentFromPlainText, richTextToPlainText, type RichTextDocument } from "@/lib/rich-text";
 
 const descriptions: Record<ProductKind, string> = {
   download: "Un fichier, un modèle ou une ressource à télécharger.",
@@ -28,16 +31,21 @@ const typeIcons: Record<ProductKind, ElementType> = {
 
 export function NewProductPage() {
   const router = useRouter();
-  const { user, ready, addProduct, products, saveProductContent } = useMarketplace();
+  const { user, ready, addProduct, products, saveProductContent, togglePublished, supabaseConfigured } = useMarketplace();
   const [kind, setKind] = useState<ProductKind>("download");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [descriptionContent, setDescriptionContent] = useState<RichTextDocument>(() => documentFromPlainText(""));
+  const [descriptionFiles, setDescriptionFiles] = useState<Record<string, File>>({});
   const [category, setCategory] = useState("Design");
   const [tags, setTags] = useState("");
   const [price, setPrice] = useState("12");
   const [currency, setCurrency] = useState("EUR");
   const [file, setFile] = useState<File | null>(null);
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [coverImageName, setCoverImageName] = useState("");
+  const [coverImageError, setCoverImageError] = useState<string | null>(null);
+  const [coverImageBusy, setCoverImageBusy] = useState(false);
   const [content, setContent] = useState<ProductContent>(emptyProductContent);
   const [contentFiles, setContentFiles] = useState<Record<string, File>>({});
   const [error, setError] = useState<string | null>(null);
@@ -50,27 +58,58 @@ export function NewProductPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const publishOnCreate = submitter instanceof HTMLButtonElement && submitter.value === "publish";
+    const plainDescription = richTextToPlainText(descriptionContent);
+    if (plainDescription.trim().length < 20) {
+      setError("La description doit contenir au moins 20 caractères.");
+      return;
+    }
+    if (publishOnCreate && kind === "course" && !hasPublishableContent(content, kind)) {
+      setError("Ajoutez au moins une leçon avec du texte, une vidéo ou un fichier avant de publier ce cours.");
+      return;
+    }
     setBusy(true);
     try {
       const created = await addProduct({
         title,
         subtitle,
-        description,
+        description: plainDescription,
+        descriptionContent,
+        descriptionFiles,
         kind,
         category,
         tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
         price: Number(price),
         currency,
-        cover: coverForKind(kind),
+        cover: coverImage ?? coverForKind(kind),
         coverLabel: `${title.trim().toLocaleUpperCase("fr-FR").slice(0, 22)}\nÀ DÉCOUVRIR`,
         file,
       });
       if (kind === "course" || kind === "membership") await saveProductContent(created.id, content, contentFiles, created);
+      if (publishOnCreate) await togglePublished(created.id, created);
       router.push(`/studio?created=${encodeURIComponent(created.slug)}`);
     } catch (creationError) {
       setError(creationError instanceof Error ? creationError.message : "Le produit n’a pas pu être enregistré.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function selectCoverImage(input: HTMLInputElement) {
+    const selected = input.files?.[0];
+    if (!selected) return;
+    input.value = "";
+    setCoverImageError(null);
+    setCoverImageBusy(true);
+    try {
+      const optimized = await optimizeCoverImage(selected);
+      setCoverImage(optimized);
+      setCoverImageName(selected.name);
+    } catch (imageError) {
+      setCoverImageError(imageError instanceof Error ? imageError.message : "L’image n’a pas pu être chargée.");
+    } finally {
+      setCoverImageBusy(false);
     }
   }
 
@@ -80,7 +119,7 @@ export function NewProductPage() {
     <div className="page-wrap new-product-wrap">
       <nav className="breadcrumbs" aria-label="Fil d’Ariane"><Link href="/studio"><ArrowLeft size={14} /> Tableau de bord</Link><span>›</span><span>Nouveau produit</span></nav>
       <div className="page-title-row"><div><p className="page-eyebrow">Votre prochaine création</p><h1 className="page-title">Créer un produit</h1><p className="page-lead">Présentez ce que vous faites et choisissez comment le partager.</p></div></div>
-      {user.isDemo && <div className="dashboard-notice"><span /> Mode local : le fichier n’est pas téléversé vers un stockage privé tant que Supabase n’est pas configuré.</div>}
+      {user.isDemo && <div className="dashboard-notice"><span /> Mode local : l’image est enregistrée avec la fiche dans ce navigateur. Le fichier remis au client ne sera pas téléversé vers un stockage privé tant que Supabase n’est pas configuré.</div>}
       <form className="new-product-form" onSubmit={submit}>
         <section className="new-product-main">
           <div className="form-panel"><div className="form-section-heading"><span>01</span><div><h2>Quel type de création ?</h2><p>Le type ne pourra pas être modifié après création.</p></div></div>
@@ -90,7 +129,8 @@ export function NewProductPage() {
             <div className="form-stack">
               <div className="field-group"><label htmlFor="product-title">Nom du produit</label><input className="field-input" id="product-title" required minLength={3} maxLength={70} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Exemple : Le carnet des petites idées" /></div>
               <div className="field-group"><label htmlFor="product-subtitle">Phrase de présentation</label><input className="field-input" id="product-subtitle" required maxLength={110} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} placeholder="Une phrase courte et précise" /></div>
-              <div className="field-group"><label htmlFor="product-description">Description</label><textarea className="field-textarea" id="product-description" required minLength={20} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Que recevra votre client ? À qui cette création peut elle servir ?" /></div>
+              <RichTextEditor id="product-description" label="Description" required value={descriptionContent} onChange={setDescriptionContent} placeholder="Que recevra votre client ? À qui cette création peut-elle servir ?" files={descriptionFiles} onFilesChange={setDescriptionFiles} localContent={!supabaseConfigured || user.isDemo} />
+              <div className="field-group"><label htmlFor="product-cover-image">Image de couverture</label><label className="file-drop" htmlFor="product-cover-image"><input id="product-cover-image" type="file" accept="image/jpeg,image/png,image/webp" aria-invalid={Boolean(coverImageError)} aria-describedby="cover-image-help" onChange={(event) => void selectCoverImage(event.currentTarget)} /><Camera size={22} /><strong>{coverImageBusy ? "Optimisation de l’image…" : coverImageName || "Choisir une image"}</strong><span id="cover-image-help">JPG, PNG ou WebP. Image compressée automatiquement, 12 Mo maximum.</span></label>{coverImage && <button className="text-link" type="button" onClick={() => { setCoverImage(null); setCoverImageName(""); }}>Retirer l’image</button>}{coverImageError && <p className="form-error" role="alert">{coverImageError}</p>}</div>
               {kind === "download" && <div className="field-group"><label htmlFor="product-file">Fichier à remettre</label><label className="file-drop" htmlFor="product-file"><input id="product-file" type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><DownloadSimple size={22} /><strong>{file?.name ?? "Choisir un fichier"}</strong><span>{file ? `${(file.size / 1024 / 1024).toFixed(2)} Mo` : "Fichier privé, remis après l’achat"}</span></label></div>}
               {kind === "course" && <div className="course-outline"><BookOpenText size={20} /><div><strong>Apprentissage à son rythme</strong><p>Créez les modules, leçons et vidéos plus bas.</p></div><span>À préparer</span></div>}
               {kind === "membership" && <div className="course-outline"><Sparkle size={20} /><div><strong>Accès mensuel</strong><p>Le checkout de démonstration simulera un abonnement mensuel.</p></div><span>Mensuel</span></div>}
@@ -105,9 +145,26 @@ export function NewProductPage() {
           <div className="form-panel"><div className="form-section-heading"><span>03</span><div><h2>Choisissez un prix</h2><p>Le prix sera affiché dans la devise choisie.</p></div></div>
             <div className="form-two-col price-row"><div className="field-group"><label htmlFor="product-price">Prix</label><input className="field-input" id="product-price" type="number" min="0" step="0.01" required value={price} onChange={(event) => setPrice(event.target.value)} /></div><div className="field-group"><label htmlFor="product-currency">Devise</label><select className="field-select" id="product-currency" value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="EUR">EUR · Euro</option><option value="USD">USD · Dollar américain</option><option value="XOF">XOF · Franc CFA</option><option value="MAD">MAD · Dirham marocain</option></select></div></div>
           </div>
-          {(kind === "course" || kind === "membership") && <ProductContentEditor kind={kind} value={content} products={products} creatorId={user.id} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}
+          {(kind === "course" || kind === "membership") && <ProductContentEditor kind={kind} value={content} products={products} creatorId={user.id} localContent={!supabaseConfigured || user.isDemo} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}
         </section>
-        <aside className="new-product-aside"><div className="form-panel preview-panel"><p className="page-eyebrow">Aperçu de la fiche</p><div className={`preview-cover cover-${coverForKind(kind)}`}><span>{kindLabels[kind]}</span><strong>{title || "Votre création"}</strong></div><h3>{title || "Nom du produit"}</h3><p>{subtitle || "Votre phrase de présentation apparaîtra ici."}</p><div className="preview-price">{price ? new Intl.NumberFormat("fr-FR", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(price)) : "Prix"}{kind === "membership" ? " / mois" : ""}</div></div><div className="demo-note"><Sparkle size={16} /><span>Le nouveau produit sera enregistré comme brouillon. Vous pourrez le publier depuis votre espace.</span></div>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-dark publish-button" type="submit" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer le brouillon"}<ArrowRight size={17} /></button><Link className="text-link cancel-link" href="/studio">Annuler</Link></aside>
+        <aside className="new-product-aside">
+          <div className="form-panel preview-panel">
+            <p className="page-eyebrow">Aperçu de la fiche</p>
+            <div className={`preview-cover cover-${coverForKind(kind)}${coverImage ? " preview-cover-with-image" : ""}`}>
+              {coverImage && <Image src={coverImage} alt="" fill unoptimized className="preview-cover-image" />}
+              <span>{kindLabels[kind]}</span><strong>{title || "Votre création"}</strong>
+            </div>
+            <h3>{title || "Nom du produit"}</h3><p>{subtitle || "Votre phrase de présentation apparaîtra ici."}</p>
+            <div className="preview-price">{price ? new Intl.NumberFormat("fr-FR", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(price)) : "Prix"}{kind === "membership" ? " / mois" : ""}</div>
+          </div>
+          <div className="demo-note"><Sparkle size={16} /><span>Enregistrez en brouillon ou publiez directement le produit. Vous pourrez ensuite le modifier dans votre espace.</span></div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="publish-actions">
+            <button className="button button-light button-small publish-button" type="submit" name="intent" value="draft" disabled={busy || coverImageBusy}>{busy ? "Enregistrement…" : "Enregistrer comme brouillon"}</button>
+            <button className="button button-dark publish-button" type="submit" name="intent" value="publish" disabled={busy || coverImageBusy}>{busy ? "Enregistrement…" : "Publier le produit"}<ArrowRight size={17} /></button>
+          </div>
+          <Link className="text-link cancel-link" href="/studio">Annuler</Link>
+        </aside>
       </form>
     </div>
   );
@@ -115,4 +172,52 @@ export function NewProductPage() {
 
 function coverForKind(kind: ProductKind) {
   return ({ download: "identity", course: "photography", membership: "membership", physical: "notebook", service: "portfolio" } as const)[kind];
+}
+
+async function optimizeCoverImage(file: File) {
+  const acceptedTypes = ["image/jpeg", "image/png", "image/webp"];
+  if (!acceptedTypes.includes(file.type)) throw new Error("Choisissez une image JPG, PNG ou WebP.");
+  if (file.size > 12 * 1024 * 1024) throw new Error("L’image doit faire moins de 12 Mo.");
+
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new Error("Le navigateur n’a pas pu ouvrir cette image. Essayez un autre fichier.");
+  }
+
+  const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+  let width = Math.max(1, Math.round(bitmap.width * scale));
+  let height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    bitmap.close();
+    throw new Error("L’image n’a pas pu être optimisée dans ce navigateur.");
+  }
+
+  let blob: Blob | null = null;
+  try {
+    for (const [attempt, quality] of [0.82, 0.72, 0.62, 0.54].entries()) {
+      canvas.width = width;
+      canvas.height = height;
+      context.drawImage(bitmap, 0, 0, width, height);
+      blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+      if (blob && blob.size <= 250_000) break;
+      if (attempt >= 1) {
+        width = Math.max(1, Math.round(width * 0.82));
+        height = Math.max(1, Math.round(height * 0.82));
+      }
+    }
+  } finally {
+    bitmap.close();
+  }
+
+  if (!blob || blob.size > 250_000) throw new Error("Cette image reste trop lourde. Essayez une image plus légère.");
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("L’image n’a pas pu être lue."));
+    reader.onerror = () => reject(new Error("L’image n’a pas pu être lue."));
+    reader.readAsDataURL(blob);
+  });
 }

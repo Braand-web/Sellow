@@ -8,6 +8,9 @@ import type { Product } from "@/lib/types";
 const demoEnabled = process.env.DEMO_CHECKOUT_ENABLED === "true" || process.env.NODE_ENV !== "production";
 
 export async function POST(request: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Le checkout de démonstration est désactivé en production." }, { status: 410 });
+  }
   if (!demoEnabled) {
     return NextResponse.json({ error: "Le checkout de démonstration est désactivé." }, { status: 403 });
   }

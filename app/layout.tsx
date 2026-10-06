@@ -10,19 +10,20 @@ import { MarketplaceProvider } from "@/app/providers";
 import { GlobalNotice } from "@/components/global-notice";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sellow.fun"),
   title: {
-    default: "Gumroad — Des idées à partager",
-    template: "%s — Gumroad",
+    default: "Sellow — Des idées à partager",
+    template: "%s — Sellow",
   },
   description:
     "Découvrez des ressources, des cours et des objets imaginés par des créateurs indépendants.",
   openGraph: {
-    title: "Gumroad — Des idées à partager",
+    title: "Sellow — Des idées à partager",
     description: "Des créations indépendantes, à découvrir et à partager.",
     type: "website",
     images: ["/og-image.svg"],
   },
-  icons: { icon: "/icon.svg" },
+  icons: { icon: "/sellow-icon.svg" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

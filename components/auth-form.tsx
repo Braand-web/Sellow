@@ -57,7 +57,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         {success && <p className="form-success" role="status">{success}</p>}
         {!success && <button className="button button-dark" type="submit" disabled={busy}>{busy ? "Un instant…" : isSignup ? "Créer mon compte" : "Continuer"}<ArrowRight size={17} /></button>}
       </form>
-      <div className="form-bottom">{isSignup ? <>Vous avez déjà un compte ? <Link href="/connexion">Se connecter</Link></> : <>Nouveau sur Gumroad ? <Link href="/inscription">Créer un compte</Link></>}</div>
+      <div className="form-bottom">{isSignup ? <>Vous avez déjà un compte ? <Link href="/connexion">Se connecter</Link></> : <>Nouveau sur Sellow ? <Link href="/inscription">Créer un compte</Link></>}</div>
     </div>
   );
 }

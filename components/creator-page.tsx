@@ -18,7 +18,7 @@ export function CreatorPage() {
       name: creatorProducts[0].creatorName,
       slug: creatorProducts[0].creatorSlug,
       email: "",
-      bio: "Créateur indépendant sur Gumroad.",
+      bio: "Créateur indépendant sur Sellow.",
       initials: creatorProducts[0].creatorInitials,
       tone: creatorProducts[0].creatorTone,
     } : null);

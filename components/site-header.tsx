@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, MagnifyingGlass, Storefront } from "@phosphor-icons/react";
 import { FormEvent, useState } from "react";
 import { useMarketplace } from "@/app/providers";
+import { BrandMark } from "@/components/brand-mark";
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -20,9 +21,9 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <div className="header-inner">
-        <Link className="brand" href="/" aria-label="Gumroad, accueil">
-          <span className="brand-mark" aria-hidden="true"><span /></span>
-          <span>gumroad</span>
+        <Link className="brand" href="/" aria-label="Sellow, accueil">
+          <BrandMark />
+          <span>Sellow</span>
         </Link>
         <nav className="main-nav" aria-label="Navigation principale">
           <Link className={pathname === "/" ? "nav-active" : ""} href="/#decouvrir">Découvrir</Link>

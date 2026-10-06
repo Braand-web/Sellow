@@ -9,10 +9,11 @@ import { ProductCard, formatPrice } from "@/components/product-card";
 import { ProductCover } from "@/components/product-cover";
 import { kindLabels } from "@/lib/types";
 import type { ProductContent } from "@/lib/types";
+import { RichTextContent } from "@/components/rich-text-content";
 
 export function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { products, favorites, toggleFavorite, ready, loadProductContent } = useMarketplace();
+  const { products, favorites, toggleFavorite, ready, loadProductContent, supabaseConfigured, user } = useMarketplace();
   const product = products.find((item) => item.slug === slug);
   const [publicContent, setPublicContent] = useState<ProductContent | null>(null);
   useEffect(() => {
@@ -45,7 +46,7 @@ export function ProductPage() {
       <div className="detail-layout">
         <div>
           <div className="detail-cover"><ProductCover product={product} /></div>
-          <p className="detail-description">{product.description}</p>
+          <RichTextContent className="detail-description" value={product.descriptionContent} fallbackText={product.description} productId={product.id} localContent={!supabaseConfigured || user?.isDemo || !/^[0-9a-f-]{36}$/i.test(product.id)} />
           <div className="detail-info"><span>{kindLabels[product.kind]}</span><span>{detailText}</span>{product.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>
           {product.kind === "course" && <Link className="text-link course-preview-link" href={`/apprendre/${encodeURIComponent(product.slug)}`}>Voir les leçons en aperçu</Link>}
           {product.kind === "membership" && publicContent?.membershipCourseIds.length ? <section className="included-course-list public-included-courses"><h2>Cours compris dans l’abonnement</h2>{publicContent.membershipCourseIds.map((courseId) => products.find((item) => item.id === courseId)).filter((course) => course?.kind === "course" && course.published).map((course) => <Link className="included-course-link" key={course!.id} href={`/produits/${encodeURIComponent(course!.slug)}`}><span>{course!.title}</span><ArrowRight size={16} /></Link>)}</section> : null}

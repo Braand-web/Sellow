@@ -100,7 +100,7 @@ export function HomePage() {
           </form>
           <p className="hero-proof"><strong>Fichiers, cours et abonnements</strong> · Une sélection créée par des personnes indépendantes</p>
         </div>
-        <div className="hero-art" aria-label="Sélection de créations Gumroad">
+        <div className="hero-art" aria-label="Sélection de créations Sellow">
           <div className="hero-art-circle" />
           {heroProducts[1] && <div className="floating-cover floating-cover-left"><ProductCover product={heroProducts[1]} compact /></div>}
           {heroProducts[2] && <div className="floating-cover floating-cover-right"><ProductCover product={heroProducts[2]} compact /></div>}

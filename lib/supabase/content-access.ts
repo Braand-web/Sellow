@@ -12,7 +12,7 @@ export async function canAccessProductContent(admin: SupabaseClient, productId: 
   const membershipCourseIds = (links ?? []).map((link) => String(link.course_id));
   const productIds = [...new Set([productId, ...(links ?? []).map((link) => String(link.membership_id))])];
   const { data: rows } = await admin.from("entitlements")
-    .select("buyer_id, product_id, order_id, active")
+    .select("buyer_id, product_id, order_id, active, ends_at")
     .eq("buyer_id", userId)
     .eq("active", true)
     .in("product_id", productIds);
@@ -25,6 +25,7 @@ export async function canAccessProductContent(admin: SupabaseClient, productId: 
     buyerId: String(row.buyer_id),
     productId: String(row.product_id),
     active: Boolean(row.active),
+    endsAt: row.ends_at ? String(row.ends_at) : undefined,
     orderStatus: statuses.get(String(row.order_id)) ?? "",
   }));
   const allowed = canAccessCourseContent({

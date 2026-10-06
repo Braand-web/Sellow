@@ -4,6 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { canAccessProductContent } from "@/lib/supabase/content-access";
 import type { Product } from "@/lib/types";
+import { collectRichTextImages, collectRichTextVideoUrls, stripRichTextStoragePaths } from "@/lib/rich-text";
 
 type RouteContext = { params: Promise<{ productId: string }> };
 
@@ -39,6 +40,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
         ...module,
         lessons: module.lessons.filter((lesson) => lesson.isPreview).map((lesson) => ({
           ...lesson,
+          descriptionContent: stripRichTextStoragePaths(lesson.descriptionContent),
           resources: (lesson.resources ?? []).map(({ id, name, fileName }) => ({ id, name, fileName })),
         })),
       })).filter((module) => module.lessons.length),
@@ -60,7 +62,10 @@ export async function PUT(request: Request, { params }: RouteContext) {
   let body: { content?: unknown };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Contenu invalide." }, { status: 400 }); }
   const content = normalizeProductContent(body.content);
-  const videoUrls = [...content.modules.flatMap((module) => module.lessons.map((lesson) => lesson.videoUrl)), ...content.membershipPosts.map((post) => post.videoUrl)].filter((url): url is string => Boolean(url));
+  const videoUrls = [
+    ...content.modules.flatMap((module) => module.lessons.flatMap((lesson) => [lesson.videoUrl, ...collectRichTextVideoUrls(lesson.descriptionContent)])),
+    ...content.membershipPosts.flatMap((post) => [post.videoUrl, ...collectRichTextVideoUrls(post.bodyContent)]),
+  ].filter((url): url is string => Boolean(url));
   if (videoUrls.some((url) => !videoEmbed(url))) return NextResponse.json({ error: "Utilisez un lien vidéo YouTube ou Vimeo valide." }, { status: 400 });
   const resources = [
     ...content.modules.flatMap((module) => module.lessons.flatMap((lesson) => lesson.resources ?? [])),
@@ -68,6 +73,13 @@ export async function PUT(request: Request, { params }: RouteContext) {
   ];
   if (resources.some((resource) => resource.storagePath && !resource.storagePath.startsWith(`${authData.user.id}/${productId}/resources/`))) {
     return NextResponse.json({ error: "Un fichier doit provenir de l’espace privé de ce produit." }, { status: 400 });
+  }
+  const imagePaths = [
+    ...content.modules.flatMap((module) => module.lessons.flatMap((lesson) => collectRichTextImages(lesson.descriptionContent).map((image) => image.storagePath))),
+    ...content.membershipPosts.flatMap((post) => collectRichTextImages(post.bodyContent).map((image) => image.storagePath)),
+  ].filter((path): path is string => Boolean(path));
+  if (imagePaths.some((path) => !path.startsWith(`${authData.user.id}/${productId}/resources/`))) {
+    return NextResponse.json({ error: "Une image doit provenir de l’espace privé de ce produit." }, { status: 400 });
   }
   const courseIds = product.product_kind === "membership" ? [...new Set(content.membershipCourseIds)] : [];
   const previous = await admin.from("membership_courses").select("course_id").eq("membership_id", productId);

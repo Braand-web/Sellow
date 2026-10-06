@@ -1,4 +1,5 @@
 import type { CourseLesson, Product, ProductContent } from "@/lib/types";
+import { normalizeRichTextDocument, richTextToPlainText } from "@/lib/rich-text";
 
 export const emptyProductContent = (): ProductContent => ({ modules: [], membershipPosts: [], membershipCourseIds: [] });
 
@@ -16,7 +17,8 @@ export function normalizeProductContent(value: unknown): ProductContent {
       ...post,
       id: String(post.id || crypto.randomUUID()),
       title: String(post.title || "Publication"),
-      body: String(post.body || ""),
+      body: String(post.body || richTextToPlainText(post.bodyContent) || ""),
+      bodyContent: normalizeRichTextDocument(post.bodyContent),
       createdAt: String(post.createdAt || new Date().toISOString()),
       status: post.status === "published" ? "published" : "draft",
       resources: Array.isArray(post.resources) ? post.resources : [],
@@ -29,7 +31,8 @@ function normalizeLesson(lesson: CourseLesson): CourseLesson {
   return {
     id: String(lesson.id || crypto.randomUUID()),
     title: String(lesson.title || "Leçon"),
-    description: String(lesson.description || ""),
+    description: String(lesson.description || richTextToPlainText(lesson.descriptionContent) || ""),
+    descriptionContent: normalizeRichTextDocument(lesson.descriptionContent),
     durationMinutes: Number(lesson.durationMinutes) || undefined,
     videoUrl: lesson.videoUrl || undefined,
     resources: Array.isArray(lesson.resources) ? lesson.resources : [],
@@ -56,8 +59,8 @@ export function publicProduct(product: Product): Product {
 }
 
 export function hasPublishableContent(content: ProductContent, kind: Product["kind"]) {
-  if (kind === "course") return content.modules.some((module) => module.title.trim() && module.lessons.some((lesson) => lesson.title.trim() && (lesson.description.trim() || lesson.videoUrl || lesson.resources?.length)));
-  if (kind === "membership") return content.membershipPosts.some((post) => post.status === "published" && post.title.trim() && (post.body.trim() || post.videoUrl || post.resources?.length)) || content.membershipCourseIds.length > 0;
+  if (kind === "course") return content.modules.some((module) => module.title.trim() && module.lessons.some((lesson) => lesson.title.trim() && (lesson.description.trim() || richTextToPlainText(lesson.descriptionContent) || lesson.videoUrl || lesson.resources?.length)));
+  if (kind === "membership") return content.membershipPosts.some((post) => post.status === "published" && post.title.trim() && (post.body.trim() || richTextToPlainText(post.bodyContent) || post.videoUrl || post.resources?.length)) || content.membershipCourseIds.length > 0;
   return true;
 }
 

@@ -15,7 +15,9 @@ import { slugify } from "@/lib/slug";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { CourseProgress, DemoUser, EditableProductInput, NewProductInput, Order, Product, ProductContent } from "@/lib/types";
 import { contentFromLegacy, emptyProductContent, hasPublishableContent, normalizeProductContent, publicProduct, videoEmbed } from "@/lib/product-content";
-import { readLocalContent, writeLocalContent } from "@/lib/content-storage";
+import { readLocalContent, writeLocalContent, writeLocalFiles } from "@/lib/content-storage";
+import { collectRichTextImages, collectRichTextVideoUrls, documentFromPlainText, normalizeRichTextDocument, richTextToPlainText, stripRichTextStoragePaths, transformRichTextImages } from "@/lib/rich-text";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type PersistedState = {
   user: DemoUser | null;
@@ -46,7 +48,7 @@ type MarketplaceContextValue = {
   logout: () => Promise<void>;
   addProduct: (input: NewProductInput) => Promise<Product>;
   updateProduct: (productId: string, input: EditableProductInput) => Promise<void>;
-  togglePublished: (productId: string) => Promise<void>;
+  togglePublished: (productId: string, knownProduct?: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
   purchase: (input: PurchaseInput) => Promise<Order>;
   cancelSubscription: (order: Order) => Promise<void>;
@@ -84,7 +86,7 @@ function userFromSupabase(user: {
     name,
     slug,
     email: user.email ?? "",
-    bio: "Créateur indépendant sur Gumroad.",
+    bio: "Créateur indépendant sur Sellow.",
     initials: initials || "CR",
     tone: "rose",
     isDemo: false,
@@ -106,6 +108,7 @@ function productFromRow(row: Record<string, unknown>): Product {
     title: String(row.title),
     subtitle: String(row.subtitle ?? ""),
     description: String(row.description ?? ""),
+    descriptionContent: stripRichTextStoragePaths(row.description_content),
     kind: String(row.product_kind ?? "download") as Product["kind"],
     category: String(row.category ?? "Autre"),
     tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
@@ -126,6 +129,43 @@ function productFromRow(row: Record<string, unknown>): Product {
   };
 }
 
+async function uploadPublicRichTextImages(
+  supabase: SupabaseClient,
+  userId: string,
+  productId: string,
+  document: NonNullable<Product["descriptionContent"]>,
+  files: Record<string, File>,
+) {
+  const uploadedPaths: string[] = [];
+  const imageIds = collectRichTextImages(document).map((image) => image.resourceId);
+  let result = document;
+  try {
+    for (const resourceId of [...new Set(imageIds)]) {
+      const file = files[resourceId];
+      if (!file) throw new Error("Une image du texte doit être sélectionnée de nouveau avant l’enregistrement.");
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 8 * 1024 * 1024) {
+        throw new Error("Les images insérées doivent être au format JPG, PNG ou WebP et faire moins de 8 Mo.");
+      }
+      const path = `${userId}/${productId}/${resourceId}-${file.name.replace(/[^\w.-]/g, "_")}`;
+      const { error } = await supabase.storage.from("product-rich-images").upload(path, file, { upsert: false });
+      if (error) throw new Error(error.message);
+      uploadedPaths.push(path);
+      const { data } = supabase.storage.from("product-rich-images").getPublicUrl(path);
+      result = transformRichTextImages(result, (attrs) => {
+        if (attrs.resourceId !== resourceId) return attrs;
+        attrs.src = data.publicUrl;
+        delete attrs.resourceId;
+        delete attrs.storagePath;
+        return attrs;
+      });
+    }
+    return { document: result, uploadedPaths };
+  } catch (error) {
+    if (uploadedPaths.length) await supabase.storage.from("product-rich-images").remove(uploadedPaths);
+    throw error;
+  }
+}
+
 function orderFromRow(row: Record<string, unknown>): Order {
   return {
     id: String(row.id),
@@ -141,6 +181,8 @@ function orderFromRow(row: Record<string, unknown>): Order {
     amount: Number(row.amount ?? 0) / 100,
     currency: String(row.currency ?? "EUR"),
     createdAt: String(row.created_at ?? new Date().toISOString()),
+    membershipExpiresAt: row.membership_expires_at ? String(row.membership_expires_at) : undefined,
+    membershipRenewalCancelledAt: row.membership_renewal_cancelled_at ? String(row.membership_renewal_cancelled_at) : undefined,
     shippingAddress: row.shipping_address ? String(row.shipping_address) : undefined,
     buyerNote: row.buyer_note ? String(row.buyer_note) : undefined,
     isRemote: true,
@@ -210,7 +252,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
     const loadRemote = async () => {
       const [{ data: authData }, { data, error }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from("products").select("id, slug, title, subtitle, description, product_kind, category, tags, amount, currency, creator_id, creator_name, creator_slug, cover, cover_label, file_name, file_path, published, created_at").order("created_at", { ascending: false }),
+        supabase.from("products").select("id, slug, title, subtitle, description, description_content, product_kind, category, tags, amount, currency, creator_id, creator_name, creator_slug, cover, cover_label, file_name, file_path, published, created_at").order("created_at", { ascending: false }),
       ]);
       if (!active) return;
       if (authData.user) {
@@ -289,7 +331,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         name: trimmedName,
         slug: `${slugify(trimmedName) || "createur"}-${Math.random().toString(36).slice(2, 6)}`,
         email: email.trim().toLowerCase(),
-        bio: "Créateur indépendant sur Gumroad.",
+        bio: "Créateur indépendant sur Sellow.",
         initials: trimmedName
           .split(/\s+/)
           .map((part) => part[0])
@@ -323,7 +365,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         name: titleName,
         slug: `${slugify(titleName) || "createur"}-demo`,
         email: email.trim().toLowerCase(),
-        bio: "Créateur indépendant sur Gumroad.",
+        bio: "Créateur indépendant sur Sellow.",
         initials: titleName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2),
         tone: "rose",
         isDemo: true,
@@ -343,6 +385,10 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
     async (input: NewProductInput) => {
       if (!user) throw new Error("Connectez-vous pour publier un produit.");
       const id = crypto.randomUUID();
+      const inputDocument = normalizeRichTextDocument(input.descriptionContent) ?? documentFromPlainText(input.description);
+      if (collectRichTextVideoUrls(inputDocument).some((url) => !videoEmbed(url))) throw new Error("Utilisez un lien vidéo YouTube ou Vimeo valide.");
+      let descriptionContent = inputDocument;
+      const uploadedPublicPaths: string[] = [];
       const fileName = input.file?.name;
       let filePath: string | undefined;
 
@@ -354,12 +400,20 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         if (uploadError) throw new Error(uploadError.message);
       }
 
+      if (supabase && !user.isDemo) {
+        const uploaded = await uploadPublicRichTextImages(supabase, user.id, id, inputDocument, input.descriptionFiles ?? {});
+        descriptionContent = uploaded.document;
+        uploadedPublicPaths.push(...uploaded.uploadedPaths);
+      }
+      const description = richTextToPlainText(descriptionContent) || input.description.trim();
+
       const product: Product = {
         id,
         slug: `${slugify(input.title) || "produit"}-${id.slice(0, 5)}`,
         title: input.title.trim(),
         subtitle: input.subtitle.trim(),
-        description: input.description.trim(),
+        description,
+        descriptionContent,
         kind: input.kind,
         category: input.category,
         tags: input.tags,
@@ -399,6 +453,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           title: product.title,
           subtitle: product.subtitle,
           description: product.description,
+          description_content: product.descriptionContent,
           product_kind: product.kind,
           category: product.category,
           tags: product.tags,
@@ -411,8 +466,13 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           published: false,
           details: product.details,
         });
-        if (error) throw new Error(error.message);
+        if (error) {
+          if (uploadedPublicPaths.length) await supabase.storage.from("product-rich-images").remove(uploadedPublicPaths);
+          throw new Error(error.message);
+        }
         setSupabaseConnected(true);
+      } else {
+        await writeLocalFiles(input.descriptionFiles ?? {});
       }
 
       setProducts((current) => [product, ...current]);
@@ -422,8 +482,8 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
   );
 
   const togglePublished = useCallback(
-    async (productId: string) => {
-      const product = products.find((item) => item.id === productId);
+    async (productId: string, knownProduct?: Product) => {
+      const product = products.find((item) => item.id === productId) ?? knownProduct;
       if (!product || !user || product.creatorId !== user.id) return;
       const published = !product.published;
       if (published && product.kind === "course") {
@@ -450,11 +510,21 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
     async (productId: string, input: EditableProductInput) => {
       const product = products.find((item) => item.id === productId);
       if (!product || !user || product.creatorId !== user.id) throw new Error("Vous ne pouvez pas modifier ce produit.");
+      const inputDocument = normalizeRichTextDocument(input.descriptionContent) ?? product.descriptionContent ?? documentFromPlainText(input.description);
+      if (collectRichTextVideoUrls(inputDocument).some((url) => !videoEmbed(url))) throw new Error("Utilisez un lien vidéo YouTube ou Vimeo valide.");
+      let descriptionContent = inputDocument;
+      const uploadedPublicPaths: string[] = [];
+      if (supabase && !user.isDemo) {
+        const uploaded = await uploadPublicRichTextImages(supabase, user.id, productId, inputDocument, input.descriptionFiles ?? {});
+        descriptionContent = uploaded.document;
+        uploadedPublicPaths.push(...uploaded.uploadedPaths);
+      }
       const updated: Product = {
         ...product,
         title: input.title.trim(),
         subtitle: input.subtitle.trim(),
-        description: input.description.trim(),
+        description: richTextToPlainText(descriptionContent) || input.description.trim(),
+        descriptionContent,
         category: input.category,
         tags: input.tags,
         price: input.price,
@@ -468,6 +538,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           title: updated.title,
           subtitle: updated.subtitle,
           description: updated.description,
+          description_content: updated.descriptionContent,
           category: updated.category,
           tags: updated.tags,
           amount: Math.round(updated.price * 100),
@@ -476,7 +547,12 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           cover_label: updated.coverLabel,
           details: updated.details,
         }).eq("id", productId).eq("creator_id", user.id);
-        if (error) throw new Error(error.message);
+        if (error) {
+          if (uploadedPublicPaths.length) await supabase.storage.from("product-rich-images").remove(uploadedPublicPaths);
+          throw new Error(error.message);
+        }
+      } else {
+        await writeLocalFiles(input.descriptionFiles ?? {});
       }
       setProducts((current) => current.map((item) => item.id === productId ? updated : item));
     },
@@ -499,8 +575,11 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
   const purchase = useCallback(async ({ product, buyerEmail, shippingAddress, buyerNote }: PurchaseInput) => {
     let order: Order;
     const remoteProduct = Boolean(supabase && /^[0-9a-f-]{36}$/i.test(product.id));
+    if (process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay" && !remoteProduct) {
+      throw new Error("Ce produit n’est pas disponible pour le paiement réel.");
+    }
     if (remoteProduct) {
-      const response = await fetch("/api/demo-checkout", {
+      const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -512,8 +591,8 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? "Le checkout de démonstration n’a pas abouti.");
-      order = { ...(payload.order as Order), isRemote: true };
+      if (!response.ok) throw new Error(payload.error ?? "Le checkout n’a pas abouti.");
+      order = { ...(payload.order as Order), checkoutUrl: payload.checkoutUrl, isRemote: true };
     } else {
       const result = await paymentProvider.createCheckout({ product, buyerEmail, shippingAddress });
       order = {
@@ -538,8 +617,19 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const cancelSubscription = useCallback(async (order: Order) => {
-    if (order.status === "canceled_demo") return;
-      if (order.isRemote && /^[0-9a-f-]{36}$/i.test(order.id)) {
+    if (order.status === "canceled_demo" || order.membershipRenewalCancelledAt) return;
+    if (order.isRemote && /^[0-9a-f-]{36}$/i.test(order.id) && order.status === "paid") {
+      const response = await fetch("/api/memberships/cancel-renewal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Le renouvellement n’a pas pu être arrêté.");
+      setOrders((current) => current.map((item) => item.id === order.id ? { ...item, membershipRenewalCancelledAt: payload.cancelledAt } : item));
+      return;
+    }
+    if (order.isRemote && /^[0-9a-f-]{36}$/i.test(order.id)) {
       const response = await fetch("/api/demo-cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -585,7 +675,10 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
     const product = products.find((item) => item.id === productId) ?? productDraft;
     if (!user || !product || product.creatorId !== user.id) throw new Error("Vous ne pouvez pas modifier ce contenu.");
     const content = normalizeProductContent(value);
-    const videoUrls = [...content.modules.flatMap((module) => module.lessons.map((lesson) => lesson.videoUrl)), ...content.membershipPosts.map((post) => post.videoUrl)].filter((url): url is string => Boolean(url));
+    const videoUrls = [
+      ...content.modules.flatMap((courseModule) => courseModule.lessons.flatMap((lesson) => [lesson.videoUrl, ...collectRichTextVideoUrls(lesson.descriptionContent)])),
+      ...content.membershipPosts.flatMap((post) => [post.videoUrl, ...collectRichTextVideoUrls(post.bodyContent)]),
+    ].filter((url): url is string => Boolean(url));
     if (videoUrls.some((url) => !videoEmbed(url))) throw new Error("Utilisez un lien vidéo YouTube ou Vimeo valide.");
     if (supabase && !user.isDemo) {
       const resolved = structuredClone(content);
@@ -595,6 +688,27 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         if (error) throw new Error(error.message);
         const resource = [...resolved.modules.flatMap((module) => module.lessons.flatMap((lesson) => lesson.resources ?? [])), ...resolved.membershipPosts.flatMap((post) => post.resources ?? [])].find((item) => item.id === resourceId);
         if (resource) resource.storagePath = path;
+        let imageFound = false;
+        for (const courseModule of resolved.modules) {
+          for (const lesson of courseModule.lessons) {
+            if (!lesson.descriptionContent) continue;
+            lesson.descriptionContent = transformRichTextImages(lesson.descriptionContent, (attrs) => {
+              if (attrs.resourceId === resourceId) { attrs.storagePath = path; imageFound = true; }
+              return attrs;
+            });
+          }
+        }
+        for (const post of resolved.membershipPosts) {
+          if (!post.bodyContent) continue;
+          post.bodyContent = transformRichTextImages(post.bodyContent, (attrs) => {
+            if (attrs.resourceId === resourceId) { attrs.storagePath = path; imageFound = true; }
+            return attrs;
+          });
+        }
+        if (!resource && !imageFound) {
+          await supabase.storage.from("product-files").remove([path]);
+          throw new Error("Une image ou ressource choisie n’est plus présente dans le contenu.");
+        }
       }
       const response = await fetch(`/api/products/${encodeURIComponent(productId)}/content`, {
         method: "PUT",

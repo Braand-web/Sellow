@@ -1,0 +1,12 @@
+export const STANDARD_COMMISSION_RATE: number;
+export const REDUCED_COMMISSION_RATE: number;
+export const REDUCED_COMMISSION_THRESHOLD_USD: number;
+export function currencyFractionDigits(currency: string): number;
+export function roundCurrencyAmount(amount: number, currency: string): number;
+export function amountToStoredUnits(amount: number, currency: string): number;
+export function storedUnitsToAmount(units: number): number;
+export function commissionRateForLifetimeSales(lifetimeSalesUsd: number): number;
+export function calculateCommission(amount: number, currency: string, rate: number): number;
+export function calculateCreatorNet(amount: number, commissionAmount: number, processorFeeAmount: number): number;
+export function calculateAvailableBalance(paidOrders: { currency: string; creator_net_amount: number }[], payoutRequests: { currency: string; amount: number; status: string }[], currency: string): number;
+export function addOneMonth(dateValue: string | Date): string;

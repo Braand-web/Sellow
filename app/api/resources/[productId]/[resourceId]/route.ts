@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { canAccessProductContent } from "@/lib/supabase/content-access";
+import { collectRichTextImages } from "@/lib/rich-text";
 
 type RouteContext = { params: Promise<{ productId: string; resourceId: string }> };
 
@@ -15,8 +16,14 @@ export async function GET(_request: Request, { params }: RouteContext) {
   if (!product) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
   const { data } = await admin.from("product_contents").select("content").eq("product_id", productId).maybeSingle();
   const content = data?.content;
-  const courseResources = (content?.modules ?? []).flatMap((module: { lessons?: { isPreview?: boolean; resources?: { id: string; fileName?: string; storagePath?: string }[] }[] }) => (module.lessons ?? []).flatMap((lesson) => (lesson.resources ?? []).map((resource) => ({ ...resource, preview: Boolean(lesson.isPreview) }))));
-  const postResources = (content?.membershipPosts ?? []).flatMap((post: { resources?: { id: string; storagePath?: string }[] }) => post.resources ?? []);
+  const courseResources = (content?.modules ?? []).flatMap((module: { lessons?: { isPreview?: boolean; descriptionContent?: unknown; resources?: { id: string; fileName?: string; storagePath?: string }[] }[] }) => (module.lessons ?? []).flatMap((lesson) => [
+    ...(lesson.resources ?? []).map((resource) => ({ ...resource, preview: Boolean(lesson.isPreview), isImage: false })),
+    ...collectRichTextImages(lesson.descriptionContent).map((image) => ({ id: image.resourceId, fileName: "image", storagePath: image.storagePath, preview: Boolean(lesson.isPreview), isImage: true })),
+  ]));
+  const postResources = (content?.membershipPosts ?? []).flatMap((post: { bodyContent?: unknown; resources?: { id: string; storagePath?: string }[] }) => [
+    ...(post.resources ?? []).map((resource) => ({ ...resource, isImage: false })),
+    ...collectRichTextImages(post.bodyContent).map((image) => ({ id: image.resourceId, fileName: "image", storagePath: image.storagePath, isImage: true })),
+  ]);
   const resource = [...courseResources, ...postResources].find((item) => item.id === resourceId && item.storagePath);
   if (!resource?.storagePath) return NextResponse.json({ error: "La ressource est introuvable." }, { status: 404 });
   const publicPreview = product.product_kind === "course" && product.published && "preview" in resource && resource.preview;
@@ -26,7 +33,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   } else if (!publicPreview) {
     return NextResponse.json({ error: "Connectez-vous pour télécharger cette ressource." }, { status: 401 });
   }
-  const { data: signed, error } = await admin.storage.from("product-files").createSignedUrl(resource.storagePath, 60, { download: resource.fileName ?? true });
+  const { data: signed, error } = await admin.storage.from("product-files").createSignedUrl(resource.storagePath, 60, { download: "isImage" in resource && resource.isImage ? false : resource.fileName ?? true });
   if (error || !signed?.signedUrl) return NextResponse.json({ error: "Le téléchargement est indisponible." }, { status: 503 });
   return NextResponse.redirect(signed.signedUrl, { headers: { "Cache-Control": "private, no-store" } });
 }

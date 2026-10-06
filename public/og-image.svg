@@ -4,7 +4,14 @@
   <circle cx="1090" cy="530" r="180" fill="#dbe7c1"/>
   <rect x="810" y="188" width="218" height="300" rx="20" fill="#f0b8b3" transform="rotate(-8 810 188)"/>
   <rect x="900" y="240" width="218" height="300" rx="20" fill="#dcd5ff" transform="rotate(8 900 240)"/>
-  <text x="88" y="116" fill="#25231f" font-family="Manrope, sans-serif" font-size="30" font-weight="700">gumroad</text>
+  <rect x="88" y="78" width="44" height="44" rx="14" fill="#f4d45e"/>
+  <g fill="none" stroke="#22211f" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6">
+    <path d="M98 89h3l2.4 14h15l3.2-9H103"/>
+    <path d="M105 98h14"/>
+  </g>
+  <circle cx="106" cy="108" r="1.8" fill="#22211f"/>
+  <circle cx="117" cy="108" r="1.8" fill="#22211f"/>
+  <text x="146" y="111" fill="#25231f" font-family="Manrope, sans-serif" font-size="30" font-weight="700">Sellow</text>
   <text x="88" y="290" fill="#22211f" font-family="Manrope, sans-serif" font-size="64" font-weight="600">Des idées faites</text>
   <text x="88" y="370" fill="#22211f" font-family="Manrope, sans-serif" font-size="64" font-weight="600">par des indépendants.</text>
   <text x="90" y="435" fill="#77736b" font-family="Manrope, sans-serif" font-size="25">Ressources, cours et objets à découvrir.</text>

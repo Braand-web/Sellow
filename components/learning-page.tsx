@@ -8,6 +8,7 @@ import { useMarketplace } from "@/app/providers";
 import { readLocalFile } from "@/lib/content-storage";
 import type { CourseLesson, CourseProgress, ProductContent } from "@/lib/types";
 import { VideoPlayer } from "@/components/video-player";
+import { RichTextContent } from "@/components/rich-text-content";
 
 export function LearningPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -21,17 +22,17 @@ export function LearningPage() {
   const [error, setError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const localDirectAccess = useMemo(() => Boolean(product && orders.some((order) => !order.isRemote && order.productId === product.id && order.status === "paid_demo")), [orders, product]);
+  const localDirectAccess = useMemo(() => Boolean(product && orders.some((order) => !order.isRemote && order.productId === product.id && ["paid_demo", "paid"].includes(order.status))), [orders, product]);
 
   const load = useCallback(async () => {
     if (!ready || !product) return;
     setLoading(true);
     setError(null);
     try {
-      let permitted = product.creatorId === user?.id || localDirectAccess || orders.some((order) => order.isRemote && order.buyerId === user?.id && order.productId === product.id && order.productKind === "course" && order.status === "paid_demo");
+      let permitted = product.creatorId === user?.id || localDirectAccess || orders.some((order) => order.isRemote && order.buyerId === user?.id && order.productId === product.id && order.productKind === "course" && ["paid_demo", "paid"].includes(order.status));
       const remote = supabaseConfigured && /^[0-9a-f-]{36}$/i.test(product.id);
       if (!permitted) {
-        const memberOrders = orders.filter((order) => order.status === "paid_demo" && order.productKind === "membership" && (!order.isRemote || order.buyerId === user?.id));
+        const memberOrders = orders.filter((order) => ["paid_demo", "paid"].includes(order.status) && (!order.membershipExpiresAt || new Date(order.membershipExpiresAt).getTime() > Date.now()) && order.productKind === "membership" && (!order.isRemote || order.buyerId === user?.id));
         for (const membershipOrder of memberOrders) {
           const membership = products.find((item) => item.id === membershipOrder.productId);
           if (!membership) continue;
@@ -133,7 +134,7 @@ export function LearningPage() {
         <main className="learning-main">
           {current ? <article className="learning-lesson-content"><p className="page-eyebrow">{lessons[currentIndex].moduleTitle}</p><div className="learning-main-title"><h2>{current.title}</h2>{current.durationMinutes && <span>{current.durationMinutes} min</span>}</div>
             {current.videoUrl && <VideoPlayer url={current.videoUrl} title={current.title} />}
-            <div className="lesson-body">{current.description ? <p>{current.description}</p> : <p className="field-help">Aucun texte ajouté à cette leçon.</p>}</div>
+            {current.description || current.descriptionContent ? <RichTextContent className="lesson-body" value={current.descriptionContent} fallbackText={current.description} productId={product.id} privateContent localContent={!supabaseConfigured || user?.isDemo || !/^[0-9a-f-]{36}$/i.test(product.id)} /> : <p className="field-help lesson-empty">Aucun texte ajouté à cette leçon.</p>}
             {current.resources?.length ? <section className="lesson-resources"><h3>Fichiers de la leçon</h3>{current.resources.map((resource) => <button className="resource-download" key={resource.id} type="button" onClick={() => void download(resource.id, resource.fileName, resource.storagePath)}><ArrowDown size={16} /><span>{resource.name}</span><small>Télécharger</small></button>)}</section> : null}
             {downloadError && <p className="form-error" role="alert">{downloadError}</p>}
             {isPreview ? <div className="preview-cta"><p>Cette leçon est offerte en aperçu. Achetez le cours pour suivre tous les modules et enregistrer votre progression.</p><Link className="button button-dark" href={`/checkout/${product.slug}`}>Découvrir le cours complet <ArrowRight size={16} /></Link></div> : <div className="lesson-controls"><button className={`button ${progress.completedLessonIds.includes(current.id) ? "button-light" : "button-dark"}`} type="button" onClick={() => void toggleComplete(current)}>{progress.completedLessonIds.includes(current.id) ? <CheckCircle size={17} weight="fill" /> : <Check size={17} />} {progress.completedLessonIds.includes(current.id) ? "Marquée comme terminée" : "Marquer comme terminée"}</button><div><button className="button button-light button-small" type="button" disabled={currentIndex <= 0} onClick={() => void selectLesson(lessons[currentIndex - 1]?.lesson.id ?? "")}>Précédente</button><button className="button button-dark button-small" type="button" disabled={currentIndex >= lessons.length - 1} onClick={() => void selectLesson(lessons[currentIndex + 1]?.lesson.id ?? "")}>Suivante <ArrowRight size={15} /></button></div></div>}

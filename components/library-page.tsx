@@ -23,8 +23,9 @@ export function LibraryPage() {
     const accountOrders = remoteAccount
       ? orders.filter((order) => order.isRemote && order.buyerId === user?.id)
       : orders.filter((order) => !order.isRemote);
-    if (remoteAccount || !queryEmail) return accountOrders;
-    return accountOrders.filter((order) => order.buyerEmail === queryEmail);
+    const paidOrders = accountOrders.filter((order) => ["paid", "paid_demo"].includes(order.status));
+    if (remoteAccount || !queryEmail) return paidOrders;
+    return paidOrders.filter((order) => order.buyerEmail === queryEmail);
   }, [orders, queryEmail, remoteAccount, user?.id]);
 
   async function download(orderId: string, fileName?: string) {
@@ -38,7 +39,7 @@ export function LibraryPage() {
       return;
     }
     const body = [
-      "Gumroad · fichier de démonstration",
+      "Sellow · fichier de démonstration",
       "",
       `Produit : ${order.productTitle}`,
       `Créateur : ${order.creatorName}`,
@@ -65,11 +66,11 @@ export function LibraryPage() {
         return (
           <article className="library-row" key={order.id}>
             {product ? <ProductCover product={product} compact /> : <div className="library-placeholder"><Package size={24} /></div>}
-            <div><p className="page-eyebrow">{order.productKind === "physical" ? "Objet physique" : order.productKind === "service" ? "Service" : order.productKind === "course" ? "Cours" : order.productKind === "membership" ? "Abonnement" : "Fichier numérique"}</p><h2>{order.productTitle}</h2><p>Par {order.creatorName} · Commande simulée</p></div>
+            <div><p className="page-eyebrow">{order.productKind === "physical" ? "Objet physique" : order.productKind === "service" ? "Service" : order.productKind === "course" ? "Cours" : order.productKind === "membership" ? "Abonnement" : "Fichier numérique"}</p><h2>{order.productTitle}</h2><p>Par {order.creatorName} · {order.status === "paid_demo" ? "Commande simulée" : "Paiement confirmé"}</p>{order.productKind === "membership" && order.membershipExpiresAt && <p>Accès jusqu’au {new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date(order.membershipExpiresAt))}</p>}</div>
             {order.productKind === "download" ? <button className="button button-dark button-small" type="button" onClick={() => void download(order.id, product?.fileName)}><ArrowDown size={15} /> Télécharger</button> : order.productKind === "course" ? <Link className="button button-dark button-small" href={`/apprendre/${encodeURIComponent(order.productSlug)}`}><PlayCircle size={15} /> Apprendre</Link> : <Link className="button button-dark button-small" href={`/contenu/${encodeURIComponent(order.id)}`}>{order.productKind === "physical" ? <Package size={15} /> : <BookOpenText size={15} />} {order.productKind === "membership" ? "Espace membre" : "Voir le reçu"}</Link>}
           </article>
         );
-      })}</div> : <div className="empty-state library-empty"><BookOpenText size={30} /><h2>Votre bibliothèque est encore vide</h2><p>Une création vous plaît ? Le checkout de démonstration l’ajoutera ici.</p><Link className="button button-dark" href="/#decouvrir">Explorer la sélection <ArrowRight size={16} /></Link></div>}
+      })}</div> : <div className="empty-state library-empty"><BookOpenText size={30} /><h2>Votre bibliothèque est encore vide</h2><p>Une création vous plaît ? Après confirmation du paiement, elle apparaîtra ici.</p><Link className="button button-dark" href="/#decouvrir">Explorer la sélection <ArrowRight size={16} /></Link></div>}
     </div>
   );
 }

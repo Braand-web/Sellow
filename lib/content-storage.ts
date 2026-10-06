@@ -4,10 +4,10 @@ const databaseName = "gumroad-fr-private-content-v1";
 
 function openDatabase() {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(databaseName, 1);
+    const request = indexedDB.open(databaseName, 2);
     request.onupgradeneeded = () => {
-      request.result.createObjectStore("content");
-      request.result.createObjectStore("files");
+      if (!request.result.objectStoreNames.contains("content")) request.result.createObjectStore("content");
+      if (!request.result.objectStoreNames.contains("files")) request.result.createObjectStore("files");
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("Le stockage du contenu est indisponible."));
@@ -28,6 +28,18 @@ export async function writeLocalContent(productId: string, content: ProductConte
   await new Promise<void>((resolve, reject) => {
     const transaction = database.transaction(["content", "files"], "readwrite");
     transaction.objectStore("content").put(content, productId);
+    for (const [resourceId, file] of Object.entries(files)) transaction.objectStore("files").put(file, resourceId);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+export async function writeLocalFiles(files: Record<string, File>) {
+  if (!Object.keys(files).length) return;
+  const database = await openDatabase();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction("files", "readwrite");
     for (const [resourceId, file] of Object.entries(files)) transaction.objectStore("files").put(file, resourceId);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);

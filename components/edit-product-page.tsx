@@ -8,17 +8,20 @@ import { useMarketplace } from "@/app/providers";
 import type { ProductContent } from "@/lib/types";
 import { emptyProductContent, hasPublishableContent } from "@/lib/product-content";
 import { ProductContentEditor } from "@/components/product-content-editor";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { documentFromPlainText, richTextToPlainText, type RichTextDocument } from "@/lib/rich-text";
 
 const categories = ["Design", "Photographie", "Illustration", "Développement", "Musique", "Papeterie", "Créativité"];
 
 export function EditProductPage() {
   const { productId } = useParams<{ productId: string }>();
   const router = useRouter();
-  const { user, products, ready, updateProduct, loadProductContent, saveProductContent } = useMarketplace();
+  const { user, products, ready, updateProduct, loadProductContent, saveProductContent, supabaseConfigured } = useMarketplace();
   const product = useMemo(() => products.find((item) => item.id === productId), [productId, products]);
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [descriptionContent, setDescriptionContent] = useState<RichTextDocument>(() => documentFromPlainText(""));
+  const [descriptionFiles, setDescriptionFiles] = useState<Record<string, File>>({});
   const [category, setCategory] = useState("Design");
   const [tags, setTags] = useState("");
   const [price, setPrice] = useState("0");
@@ -41,7 +44,7 @@ export function EditProductPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTitle(product.title);
     setSubtitle(product.subtitle);
-    setDescription(product.description);
+    setDescriptionContent(product.descriptionContent ?? documentFromPlainText(product.description));
     setCategory(product.category);
     setTags(product.tags.join(", "));
     setPrice(String(product.price));
@@ -59,6 +62,8 @@ export function EditProductPage() {
     setBusy(true);
     setError(null);
     try {
+      const plainDescription = richTextToPlainText(descriptionContent);
+      if (plainDescription.trim().length < 20) throw new Error("La description doit contenir au moins 20 caractères.");
       if (product.kind === "course" && product.published && !hasPublishableContent(content, product.kind)) {
         throw new Error("Ajoutez au moins une leçon avec du texte, une vidéo ou un fichier avant d’enregistrer ce cours publié.");
       }
@@ -66,7 +71,9 @@ export function EditProductPage() {
       await updateProduct(product.id, {
         title,
         subtitle,
-        description,
+        description: plainDescription,
+        descriptionContent,
+        descriptionFiles,
         category,
         tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
         price: Number(price),
@@ -94,12 +101,12 @@ export function EditProductPage() {
           <div className="form-panel"><div className="form-section-heading"><span>01</span><div><h2>Informations du produit</h2><p>Le type de produit ne peut pas être modifié après création.</p></div></div><div className="form-stack">
             <div className="field-group"><label htmlFor="edit-title">Nom du produit</label><input className="field-input" id="edit-title" required minLength={3} maxLength={70} value={title} onChange={(event) => setTitle(event.target.value)} /></div>
             <div className="field-group"><label htmlFor="edit-subtitle">Phrase de présentation</label><input className="field-input" id="edit-subtitle" required maxLength={110} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} /></div>
-            <div className="field-group"><label htmlFor="edit-description">Description</label><textarea className="field-textarea" id="edit-description" required minLength={20} value={description} onChange={(event) => setDescription(event.target.value)} /></div>
+            <RichTextEditor id="edit-description" label="Description" required value={descriptionContent} onChange={setDescriptionContent} files={descriptionFiles} onFilesChange={setDescriptionFiles} productId={product.id} localContent={!supabaseConfigured || user.isDemo} />
             <div className="form-two-col"><div className="field-group"><label htmlFor="edit-category">Catégorie</label><select className="field-select" id="edit-category" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></div><div className="field-group"><label htmlFor="edit-tags">Mots clés</label><input className="field-input" id="edit-tags" value={tags} onChange={(event) => setTags(event.target.value)} /><span className="field-help">Séparez les mots clés par une virgule.</span></div></div>
             <div className="form-two-col"><div className="field-group"><label htmlFor="edit-price">Prix</label><input className="field-input" id="edit-price" type="number" min="0" step="0.01" required value={price} onChange={(event) => setPrice(event.target.value)} /></div><div className="field-group"><label htmlFor="edit-currency">Devise</label><select className="field-select" id="edit-currency" value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="EUR">EUR · Euro</option><option value="USD">USD · Dollar américain</option><option value="XOF">XOF · Franc CFA</option><option value="MAD">MAD · Dirham marocain</option></select></div></div>
           </div></div>
 
-          {(product.kind === "course" || product.kind === "membership") && <ProductContentEditor kind={product.kind} value={content} products={products} creatorId={user.id} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}
+          {(product.kind === "course" || product.kind === "membership") && <ProductContentEditor kind={product.kind} value={content} products={products} creatorId={user.id} productId={product.id} localContent={!supabaseConfigured || user.isDemo} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}
         </section>
         <aside className="new-product-aside"><div className="demo-note"><span /> Les changements sont enregistrés avec votre produit.</div>{!contentReady && <p className="field-help" role="status">Chargement du contenu privé…</p>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-dark publish-button" type="submit" disabled={busy || !contentReady}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button><Link className="text-link cancel-link" href="/studio">Annuler</Link></aside>
       </form>
