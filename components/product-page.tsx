@@ -14,7 +14,9 @@ import { RichTextContent } from "@/components/rich-text-content";
 export function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const { products, favorites, toggleFavorite, ready, loadProductContent, supabaseConfigured, user } = useMarketplace();
+  const liveMode = process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay";
   const product = products.find((item) => item.slug === slug);
+  const liveProduct = Boolean(product && /^[0-9a-f-]{36}$/i.test(product.id));
   const [publicContent, setPublicContent] = useState<ProductContent | null>(null);
   useEffect(() => {
     if (product?.kind !== "membership") return;
@@ -56,11 +58,11 @@ export function ProductPage() {
           <h1>{product.title}</h1>
           <p className="detail-subtitle">{product.subtitle}</p>
           <p className="detail-price">{formatPrice(product.price, product.currency)}{product.kind === "membership" && <small> / mois</small>}</p>
-          <div className="demo-note"><ShieldCheck size={17} /><span>Checkout de démonstration. Aucun paiement réel ne sera effectué.</span></div>
-          <Link className="button button-dark" href={`/checkout/${product.slug}`}>
+          <div className="demo-note"><ShieldCheck size={17} /><span>{liveMode ? liveProduct ? "Le paiement est traité sur le checkout hébergé SasPay." : "Fiche de présentation : le paiement réel n’est pas ouvert pour cet exemple." : "Checkout de démonstration. Aucun paiement réel ne sera effectué."}</span></div>
+          {(!liveMode || liveProduct) && <Link className="button button-dark" href={`/checkout/${product.slug}`}>
             {product.kind === "membership" ? "Choisir cet abonnement" : product.kind === "service" ? "Demander ce service" : product.price === 0 ? "Obtenir le produit" : "Acheter ce produit"}
             <ArrowRight size={17} />
-          </Link>
+          </Link>}
           <button className={`button button-light favorite-wide${saved ? " is-saved" : ""}`} type="button" aria-pressed={saved} onClick={() => toggleFavorite(product.id)}>
             <Heart size={17} weight={saved ? "fill" : "regular"} /> {saved ? "Enregistré dans vos favoris" : "Enregistrer pour plus tard"}
           </button>

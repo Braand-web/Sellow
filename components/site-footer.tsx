@@ -3,6 +3,7 @@ import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
 import { BrandMark } from "@/components/brand-mark";
 
 export function SiteFooter() {
+  const liveMode = process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay";
   return (
     <footer className="site-footer">
       <div className="footer-main">
@@ -21,7 +22,7 @@ export function SiteFooter() {
       </div>
       <div className="footer-bottom">
         <span>© 2026 Sellow. Fait pour les idées indépendantes.</span>
-        <span className="footer-demo"><i /> Démonstration sans paiement réel</span>
+        <span className="footer-demo"><i /> {liveMode ? "Paiements traités par SasPay" : "Démonstration sans paiement réel"}</span>
         <Link href="/#haut">Retour en haut <ArrowUpRight size={14} /></Link>
       </div>
     </footer>

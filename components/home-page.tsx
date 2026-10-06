@@ -31,11 +31,16 @@ const categoryIcons: Record<string, ReactNode> = {
 
 export function HomePage() {
   const { products } = useMarketplace();
+  const liveMode = process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay";
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Tout");
   const [kind, setKind] = useState("all");
   const [tag, setTag] = useState("");
   const [sort, setSort] = useState("featured");
+  const catalogProducts = useMemo(
+    () => products.filter((product) => product.published && (!liveMode || /^[0-9a-f-]{36}$/i.test(product.id))),
+    [liveMode, products],
+  );
 
   useEffect(() => {
     const search = new URLSearchParams(window.location.search).get("q");
@@ -49,8 +54,7 @@ export function HomePage() {
 
   const visible = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
-    const filtered = products.filter((product) => {
-      if (!product.published) return false;
+    const filtered = catalogProducts.filter((product) => {
       const matchesCategory = category === "Tout" || product.category === category;
       const matchesKind = kind === "all" || product.kind === kind;
       const matchesTag = !tag || product.tags.includes(tag);
@@ -62,11 +66,11 @@ export function HomePage() {
     if (sort === "price-asc") return filtered.sort((a, b) => a.price - b.price);
     if (sort === "newest") return filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return filtered.sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)));
-  }, [category, kind, products, query, sort, tag]);
+  }, [catalogProducts, category, kind, query, sort, tag]);
 
   const availableTags = useMemo(
-    () => [...new Set(products.filter((product) => product.published).flatMap((product) => product.tags))].sort((a, b) => a.localeCompare(b, "fr")),
-    [products],
+    () => [...new Set(catalogProducts.flatMap((product) => product.tags))].sort((a, b) => a.localeCompare(b, "fr")),
+    [catalogProducts],
   );
   const hasFilters = Boolean(query.trim() || category !== "Tout" || kind !== "all" || tag);
 
@@ -82,7 +86,7 @@ export function HomePage() {
     document.getElementById("decouvrir")?.scrollIntoView({ behavior: "smooth" });
   }
 
-  const heroProducts = products.slice(0, 3);
+  const heroProducts = catalogProducts.slice(0, 3);
 
   return (
     <>
@@ -186,24 +190,24 @@ export function HomePage() {
         <div className="steps-grid">
           <article className="step-card"><span className="step-number">01</span><h3>Trouvez ce qui vous parle</h3><p>Parcourez les catégories ou cherchez un outil, un cours ou une création précise.</p></article>
           <article className="step-card"><span className="step-number">02</span><h3>Découvrez la personne derrière</h3><p>Chaque page vous présente le produit et le créateur qui l’a imaginé.</p></article>
-          <article className="step-card"><span className="step-number">03</span><h3>Gardez votre découverte</h3><p>Les achats de démonstration apparaissent dans votre bibliothèque sur cet appareil.</p></article>
+          <article className="step-card"><span className="step-number">03</span><h3>Gardez votre découverte</h3><p>{liveMode ? "Après confirmation du paiement, votre achat rejoint la bibliothèque de votre compte." : "Les achats de démonstration apparaissent dans votre bibliothèque sur cet appareil."}</p></article>
         </div>
       </section>
 
       <section className="section-shell faq-section" aria-labelledby="faq-title">
         <div className="faq-grid">
-          <div className="faq-intro"><p className="page-eyebrow">Quelques réponses</p><h2 id="faq-title">Avant de vous lancer</h2><p>Les achats sur ce site sont simulés. Aucun paiement ni versement n’est effectué.</p></div>
+          <div className="faq-intro"><p className="page-eyebrow">Quelques réponses</p><h2 id="faq-title">Avant de vous lancer</h2><p>{liveMode ? "Les paiements sont traités par SasPay. Sellow n’enregistre pas vos coordonnées de paiement." : "Les achats sur ce site sont simulés. Aucun paiement ni versement n’est effectué."}</p></div>
           <div className="faq-list">
             <details><summary>Quels produits puis je trouver ici ?</summary><p>Des fichiers numériques, des cours, des abonnements, des objets physiques et des services proposés par des créateurs.</p></details>
-            <details><summary>Comment retrouver un achat de démonstration ?</summary><p>Connectez vous avec la même adresse e mail puis ouvrez votre bibliothèque. Les achats sont enregistrés dans le navigateur utilisé pour la démonstration.</p></details>
-            <details><summary>Les produits numériques sont ils vraiment téléchargés ?</summary><p>Les produits de démonstration donnent accès à un reçu et à un fichier d’exemple. Le stockage privé réel se branche avec votre projet Supabase.</p></details>
-            <details><summary>Comment se passe un abonnement ?</summary><p>Le checkout de démonstration active un accès mensuel simulé. Aucun renouvellement ni prélèvement réel ne sera déclenché.</p></details>
+            <details><summary>{liveMode ? "Comment retrouver un achat ?" : "Comment retrouver un achat de démonstration ?"}</summary><p>{liveMode ? "Connectez-vous avec le même compte puis ouvrez votre bibliothèque. Les achats confirmés y sont enregistrés." : "Connectez vous avec la même adresse e mail puis ouvrez votre bibliothèque. Les achats sont enregistrés dans le navigateur utilisé pour la démonstration."}</p></details>
+            <details><summary>Les produits numériques sont ils vraiment téléchargés ?</summary><p>{liveMode ? "Après confirmation du paiement, ouvrez votre bibliothèque pour retrouver les fichiers et contenus inclus dans votre achat." : "Les produits de démonstration donnent accès à un reçu et à un fichier d’exemple. Le stockage privé réel se branche avec votre projet Supabase."}</p></details>
+            <details><summary>Comment se passe un abonnement ?</summary><p>{liveMode ? "L’accès du mois est ouvert après confirmation du paiement. Le renouvellement est manuel : vous pouvez renouveler ou arrêter depuis votre bibliothèque." : "Le checkout de démonstration active un accès mensuel simulé. Aucun renouvellement ni prélèvement réel ne sera déclenché."}</p></details>
             <details><summary>Qui organise les envois et les services ?</summary><p>Le créateur gère lui même l’expédition d’un objet ou la réalisation d’un service après la commande.</p></details>
-            <details><summary>Quand les paiements seront ils disponibles ?</summary><p>Le parcours actuel est une démonstration. Un prestataire de paiement africain devra être choisi et configuré avant toute transaction réelle.</p></details>
+            <details><summary>{liveMode ? "Comment fonctionnent les paiements ?" : "Quand les paiements seront ils disponibles ?"}</summary><p>{liveMode ? "Vous êtes redirigé vers le checkout hébergé SasPay pour choisir un moyen de paiement. Sellow ouvre l’accès après confirmation du paiement." : "Le parcours actuel est une démonstration. Un prestataire de paiement africain devra être choisi et configuré avant toute transaction réelle."}</p></details>
           </div>
         </div>
       </section>
-      <div className="toast-demo" role="note"><i /> Parcours de démonstration</div>
+      {!liveMode && <div className="toast-demo" role="note"><i /> Parcours de démonstration</div>}
     </>
   );
 }
