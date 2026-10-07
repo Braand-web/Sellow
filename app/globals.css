@@ -235,7 +235,7 @@ p { text-wrap: pretty; }
 .floating-cover-left { z-index: 2; width: 170px !important; transform: rotate(-15deg) translate(-134px, 61px); }
 .floating-cover-right { z-index: 1; width: 185px !important; transform: rotate(10deg) translate(100px, 63px); }
 .hero-sticker { position: absolute; z-index: 4; right: 1%; top: 9%; width: 94px; height: 94px; display: grid; place-items: center; border-radius: 50%; background: #f0a172; color: #33251c; text-align: center; font-size: 12px; font-weight: 700; line-height: 1.25; transform: rotate(9deg); }
-.hero-caption { position: absolute; right: 7%; bottom: 2%; color: #827d73; font-size: 12px; }
+.hero-caption { position: absolute; right: 7%; bottom: 2%; display: inline-flex; align-items: center; gap: var(--space-2); color: #827d73; font-size: 12px; }
 
 .product-cover {
   position: relative;

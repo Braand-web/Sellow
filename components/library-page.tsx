@@ -10,6 +10,7 @@ import { ProductCover } from "@/components/product-cover";
 export function LibraryPage() {
   const { orders, products, user, ready, supabaseConfigured } = useMarketplace();
   const remoteAccount = Boolean(supabaseConfigured && user && !user.isDemo);
+  const accountLibrary = process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay" || Boolean(supabaseConfigured && !user?.isDemo);
   const [queryEmail, setQueryEmail] = useState("");
 
   useEffect(() => {
@@ -30,6 +31,12 @@ export function LibraryPage() {
   }, [orders, queryEmail, remoteAccount, user?.id]);
 
   if (!ready) return <div className="page-wrap"><div className="loading-card" /></div>;
+  if (accountLibrary && !remoteAccount) return (
+    <div className="page-wrap">
+      <div className="dashboard-header"><div><p className="page-eyebrow">Vos achats sur Sellow</p><h1>Ma bibliothèque</h1><p>Vos commandes et contenus sont associés au compte qui a réalisé l’achat.</p></div></div>
+      <div className="empty-state library-empty"><BookOpenText size={30} /><h2>Connectez-vous pour retrouver vos achats</h2><p>Ouvrez votre bibliothèque pour télécharger vos fichiers, suivre vos cours et accéder à vos abonnements.</p><Link className="button button-dark" href="/connexion?next=%2Fbibliotheque">Se connecter <ArrowRight size={16} /></Link><Link className="text-link" href="/#decouvrir">Explorer les produits</Link></div>
+    </div>
+  );
   return (
     <div className="page-wrap">
       <div className="dashboard-header"><div><p className="page-eyebrow">Vos découvertes</p><h1>Ma bibliothèque</h1><p>{remoteAccount ? "Retrouvez les achats et les contenus associés à votre compte." : "Retrouvez vos achats simulés dans le navigateur utilisé pour la démonstration."}</p></div><Link className="button button-light button-small" href="/#decouvrir">Découvrir des produits <ArrowRight size={15} /></Link></div>
