@@ -44,3 +44,5 @@ Installez le navigateur Chromium de Playwright une première fois, puis lancez l
 npx playwright install chromium
 npm run test
 ```
+
+Les tests navigateur désactivent le cache disque de Turbopack sur leur serveur local. Si l’espace disque est limité, `SELLOW_DISABLE_DISK_CACHE=true` désactive aussi ce cache pour une compilation ou un serveur de développement. Cette option ne change pas le fonctionnement de l’application ; le cache reste activé par défaut en production.

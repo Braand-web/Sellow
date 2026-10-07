@@ -16,6 +16,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: externalBaseUrl ? undefined : {
     command: "npm run dev -- --port 3100",
+    env: { SELLOW_DISABLE_DISK_CACHE: "true" },
     url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
