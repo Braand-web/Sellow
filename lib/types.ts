@@ -28,6 +28,15 @@ export type LessonResource = {
   storagePath?: string;
 };
 
+export type ProductFile = {
+  id: string;
+  name: string;
+  fileName: string;
+  size?: number;
+  mimeType?: string;
+  position: number;
+};
+
 export type CourseModule = {
   id: string;
   title: string;
@@ -78,6 +87,9 @@ export type Product = {
   category: string;
   tags: string[];
   price: number;
+  compareAtPrice?: number;
+  saveForLaterEnabled?: boolean;
+  files?: ProductFile[];
   currency: string;
   creatorId: string;
   creatorName: string;
@@ -135,6 +147,10 @@ export type NewProductInput = Pick<
   "title" | "subtitle" | "description" | "kind" | "category" | "tags" | "price" | "currency" | "cover" | "coverLabel"
 > & {
   file?: File | null;
+  files?: ProductFile[];
+  fileUploads?: Record<string, File>;
+  compareAtPrice?: number;
+  saveForLaterEnabled?: boolean;
   details?: ProductDetails;
   descriptionContent?: RichTextDocument;
   descriptionFiles?: Record<string, File>;

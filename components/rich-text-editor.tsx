@@ -1,5 +1,7 @@
 "use client";
 
+import { aidaTemplate } from "@/lib/aida-template";
+
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Node } from "@tiptap/core";
 import { Color } from "@tiptap/extension-color";
@@ -226,6 +228,7 @@ export function RichTextEditor({
   return (
     <div className="rich-text-field">
       <div className="rich-text-heading"><label className="rich-text-label" htmlFor={inputId}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+        <button className="button button-light button-small" type="button" title="Insérer un modèle éditable à la position du curseur" onClick={() => editor.chain().focus().insertContent(aidaTemplate().content ?? []).run()}>Modèle AIDA</button>
         <button className="button button-light button-small rich-assistant-trigger" type="button" aria-expanded={assistantOpen} onClick={() => { setAssistantOpen((open) => !open); setInsertMode(null); }}><MagicWand size={15} /> Assistant IA</button>
       </div>
       <div className="rich-text-editor">

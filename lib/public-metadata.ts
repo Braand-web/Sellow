@@ -12,8 +12,8 @@ export async function getProductMetadata(slug: string) {
 
   const supabase = await getSupabaseServerClient();
   if (supabase) {
-    const { data } = await supabase.from("products").select("title, description, creator_name").eq("slug", slug).eq("published", true).maybeSingle();
-    if (data) return { title: `${data.title} · ${data.creator_name}`, description: data.description || `Découvrez ${data.title}, créé par ${data.creator_name}.` };
+    const { data } = await supabase.from("products").select("title, subtitle, description, creator_name").eq("slug", slug).eq("published", true).maybeSingle();
+    if (data) return { title: `${data.title} · ${data.creator_name}`, description: (data.subtitle || data.description || `Découvrez ${data.title}, créé par ${data.creator_name}.`).slice(0, 180) };
   }
   return { title: `${readableSlug(slug)} · Création indépendante`, description: "Découvrez cette création indépendante." };
 }

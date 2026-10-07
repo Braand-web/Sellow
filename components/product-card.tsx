@@ -8,6 +8,7 @@ import { ProductCover } from "@/components/product-cover";
 
 export function formatPrice(price: number, currency: string) {
   if (price === 0) return "Gratuit";
+  if (["XAF", "XOF"].includes(currency)) return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(price)} FCFA`;
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency,
@@ -25,7 +26,7 @@ export function ProductCard({ product }: { product: Product }) {
         <Link href={`/produits/${product.slug}`} aria-label={`Voir ${product.title}`}>
           <ProductCover product={product} />
         </Link>
-        <button
+        {(product.saveForLaterEnabled !== false || saved) && <button
           type="button"
           className={`favorite-button${saved ? " is-saved" : ""}`}
           aria-label={saved ? "Retirer des favoris" : "Ajouter aux favoris"}
@@ -33,7 +34,7 @@ export function ProductCard({ product }: { product: Product }) {
           onClick={() => toggleFavorite(product.id)}
         >
           <Heart size={18} weight={saved ? "fill" : "regular"} />
-        </button>
+        </button>}
       </div>
       <div className="product-card-meta">
         <span>{kindLabels[product.kind]}</span>
@@ -49,7 +50,7 @@ export function ProductCard({ product }: { product: Product }) {
           <span className={`avatar avatar-${product.creatorTone}`}>{product.creatorInitials}</span>
           <span>{product.creatorName}</span>
         </Link>
-        <strong>{formatPrice(product.price, product.currency)}{product.kind === "membership" ? <small> / mois</small> : null}</strong>
+        <div className="card-prices">{product.compareAtPrice !== undefined && product.compareAtPrice > product.price && <s className="compare-at-price">{formatPrice(product.compareAtPrice, product.currency)}</s>}<strong>{formatPrice(product.price, product.currency)}{product.kind === "membership" ? <small> / mois</small> : null}</strong></div>
       </div>
     </article>
   );

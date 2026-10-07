@@ -51,11 +51,12 @@ export function contentFromLegacy(product: Product): ProductContent {
 }
 
 export function publicProduct(product: Product): Product {
-  if (!product.details) return product;
-  const details = { ...product.details };
+  const details = { ...(product.details ?? {}) };
   delete details.courseLessons;
   delete details.membershipPosts;
-  return { ...product, details };
+  const result = { ...product, details };
+  if (product.isRemote) { delete result.files; delete result.filePath; }
+  return result;
 }
 
 export function hasPublishableContent(content: ProductContent, kind: Product["kind"]) {
