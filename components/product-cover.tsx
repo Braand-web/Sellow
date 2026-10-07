@@ -2,7 +2,7 @@ import Image from "next/image";
 import type { Product } from "@/lib/types";
 
 export function ProductCover({ product, compact = false }: { product: Product; compact?: boolean }) {
-  const hasUploadedImage = /^data:image\/(?:webp|png|jpeg);base64,/i.test(product.cover);
+  const hasUploadedImage = /^https:\/\//i.test(product.cover) || /^data:image\/(?:webp|png|jpeg);base64,/i.test(product.cover);
 
   return (
     <div className={`product-cover${hasUploadedImage ? " product-cover-custom" : ` cover-${product.cover}`}${compact ? " product-cover-compact" : ""}`} role="img" aria-label={product.title}>

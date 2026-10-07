@@ -13,7 +13,8 @@ import { seedProducts } from "@/lib/seed";
 import { paymentProvider } from "@/lib/payment/provider";
 import { slugify } from "@/lib/slug";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { CourseProgress, DemoUser, EditableProductInput, NewProductInput, Order, Product, ProductContent } from "@/lib/types";
+import type { CourseProgress, DemoUser, EditableProductInput, NewProductInput, Order, Product, ProductContent, ProductFile } from "@/lib/types";
+import { changeFavorite, normalizeProductFiles, productFileStoragePath, validateProductPricing } from "@/lib/product-files.mjs";
 import { contentFromLegacy, emptyProductContent, hasPublishableContent, normalizeProductContent, publicProduct, videoEmbed } from "@/lib/product-content";
 import { readLocalContent, writeLocalContent, writeLocalFiles } from "@/lib/content-storage";
 import { collectRichTextImages, collectRichTextVideoUrls, documentFromPlainText, normalizeRichTextDocument, richTextToPlainText, stripRichTextStoragePaths, transformRichTextImages } from "@/lib/rich-text";
@@ -54,6 +55,7 @@ type MarketplaceContextValue = {
   cancelSubscription: (order: Order) => Promise<void>;
   toggleFavorite: (productId: string) => void;
   loadProductContent: (product: Product) => Promise<ProductContent>;
+  loadProductFiles: (product: Pick<Product, "id" | "isRemote" | "files" | "fileName">) => Promise<ProductFile[]>;
   saveProductContent: (productId: string, content: ProductContent, files?: Record<string, File>, productDraft?: Product) => Promise<void>;
   loadCourseProgress: (productId: string) => Promise<CourseProgress>;
   saveCourseProgress: (productId: string, progress: CourseProgress) => Promise<void>;
@@ -113,6 +115,8 @@ function productFromRow(row: Record<string, unknown>): Product {
     category: String(row.category ?? "Autre"),
     tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
     price: Number(row.amount ?? 0) / 100,
+    compareAtPrice: row.compare_at_amount == null ? undefined : Number(row.compare_at_amount) / 100,
+    saveForLaterEnabled: row.save_for_later_enabled !== false,
     currency: String(row.currency ?? "EUR"),
     creatorId: String(row.creator_id),
     creatorName,
@@ -122,7 +126,6 @@ function productFromRow(row: Record<string, unknown>): Product {
     cover: String(row.cover ?? "identity"),
     coverLabel: String(row.cover_label ?? "CRÉATION\nINDÉPENDANTE"),
     fileName: row.file_name ? String(row.file_name) : undefined,
-    filePath: row.file_path ? String(row.file_path) : undefined,
     published: Boolean(row.published),
     createdAt: String(row.created_at ?? new Date().toISOString()),
     details: (row.details as Product["details"]) ?? {},
@@ -190,6 +193,31 @@ function orderFromRow(row: Record<string, unknown>): Order {
   };
 }
 
+async function saveRemoteProductFiles(supabase: SupabaseClient, creatorId: string, productId: string, files: ProductFile[], uploads: Record<string, File>) {
+  const uploadedPaths: string[] = [];
+  let safeToRemove = true;
+  try {
+    for (const file of files) {
+      const upload = uploads[file.id];
+      if (!upload) continue;
+      const path = productFileStoragePath(creatorId, productId, file);
+      const { error } = await supabase.storage.from("product-files").upload(path, upload, { upsert: false });
+      if (error && String((error as { statusCode?: string | number }).statusCode) === "409") continue;
+      if (error) throw new Error(`Le fichier « ${file.name} » n’a pas pu être téléversé : ${error.message}`);
+      uploadedPaths.push(path);
+    }
+    safeToRemove = false;
+    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/files`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files }),
+    });
+    const payload = await response.json();
+    if (!response.ok) { safeToRemove = true; throw new Error(payload.error ?? "Les fichiers n’ont pas pu être enregistrés."); }
+  } catch (error) {
+    if (safeToRemove && uploadedPaths.length) await supabase.storage.from("product-files").remove(uploadedPaths);
+    throw error;
+  }
+}
+
 export function MarketplaceProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<DemoUser | null>(null);
   const [products, setProducts] = useState<Product[]>(seedProducts);
@@ -253,7 +281,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
     const loadRemote = async () => {
       const [{ data: authData }, { data, error }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from("products").select("id, slug, title, subtitle, description, description_content, product_kind, category, tags, amount, currency, creator_id, creator_name, creator_slug, cover, cover_label, file_name, file_path, published, created_at").order("created_at", { ascending: false }),
+        supabase.from("products").select("id, slug, title, subtitle, description, description_content, product_kind, category, tags, amount, compare_at_amount, save_for_later_enabled, currency, creator_id, creator_name, creator_slug, cover, cover_label, file_name, published, created_at").order("created_at", { ascending: false }),
       ]);
       if (!active) return;
       if (authData.user) {
@@ -385,21 +413,17 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
   const addProduct = useCallback(
     async (input: NewProductInput) => {
       if (!user) throw new Error("Connectez-vous pour publier un produit.");
+      validateProductPricing(input.price, input.compareAtPrice, input.currency);
       const id = crypto.randomUUID();
       const inputDocument = normalizeRichTextDocument(input.descriptionContent) ?? documentFromPlainText(input.description);
       if (collectRichTextVideoUrls(inputDocument).some((url) => !videoEmbed(url))) throw new Error("Utilisez un lien vidéo YouTube ou Vimeo valide.");
       let descriptionContent = inputDocument;
       const uploadedPublicPaths: string[] = [];
-      const fileName = input.file?.name;
-      let filePath: string | undefined;
-
-      if (supabase && !user.isDemo && input.file) {
-        filePath = `${user.id}/${id}/${input.file.name.replace(/[^\w.-]/g, "_")}`;
-        const { error: uploadError } = await supabase.storage
-          .from("product-files")
-          .upload(filePath, input.file, { upsert: false });
-        if (uploadError) throw new Error(uploadError.message);
-      }
+      const fileUploads = { ...input.fileUploads };
+      const requestedFiles = [...(input.files ?? [])];
+      if (input.file) { const fileId = crypto.randomUUID(); fileUploads[fileId] = input.file; requestedFiles.push({ id: fileId, name: input.file.name, fileName: input.file.name, size: input.file.size, mimeType: input.file.type, position: requestedFiles.length }); }
+      const files = normalizeProductFiles(input.kind === "download" ? requestedFiles : []);
+      const fileName = files[0]?.fileName;
 
       if (supabase && !user.isDemo) {
         const uploaded = await uploadPublicRichTextImages(supabase, user.id, id, inputDocument, input.descriptionFiles ?? {});
@@ -419,6 +443,9 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         category: input.category,
         tags: input.tags,
         price: input.price,
+        compareAtPrice: input.compareAtPrice,
+        saveForLaterEnabled: input.saveForLaterEnabled !== false,
+        files: supabase && !user.isDemo ? undefined : files,
         currency: input.currency,
         creatorId: user.id,
         creatorName: user.name,
@@ -428,7 +455,6 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         cover: input.cover,
         coverLabel: input.coverLabel,
         fileName,
-        filePath,
         published: false,
         createdAt: new Date().toISOString(),
         details: input.details ?? (input.kind === "membership" ? { interval: "mois" } : {}),
@@ -460,11 +486,12 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           category: product.category,
           tags: product.tags,
           amount: Math.round(product.price * 100),
+          compare_at_amount: product.compareAtPrice === undefined ? null : Math.round(product.compareAtPrice * 100),
+          save_for_later_enabled: product.saveForLaterEnabled,
           currency: product.currency,
           cover: product.cover,
           cover_label: product.coverLabel,
           file_name: fileName,
-          file_path: filePath,
           published: false,
           details: product.details,
         });
@@ -472,9 +499,16 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           if (uploadedPublicPaths.length) await supabase.storage.from("product-rich-images").remove(uploadedPublicPaths);
           throw new Error(error.message);
         }
+        try {
+          if (product.kind === "download") await saveRemoteProductFiles(supabase, user.id, product.id, files, fileUploads);
+        } catch (fileError) {
+          await supabase.from("products").delete().eq("id", product.id).eq("creator_id", user.id);
+          if (uploadedPublicPaths.length) await supabase.storage.from("product-rich-images").remove(uploadedPublicPaths);
+          throw fileError;
+        }
         setSupabaseConnected(true);
       } else {
-        await writeLocalFiles(input.descriptionFiles ?? {});
+        await writeLocalFiles({ ...input.descriptionFiles, ...fileUploads });
       }
 
       setProducts((current) => [product, ...current]);
@@ -512,6 +546,8 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
     async (productId: string, input: EditableProductInput) => {
       const product = products.find((item) => item.id === productId);
       if (!product || !user || product.creatorId !== user.id) throw new Error("Vous ne pouvez pas modifier ce produit.");
+      validateProductPricing(input.price, input.compareAtPrice, input.currency);
+      const files = input.files === undefined ? undefined : normalizeProductFiles(input.files);
       const inputDocument = normalizeRichTextDocument(input.descriptionContent) ?? product.descriptionContent ?? documentFromPlainText(input.description);
       if (collectRichTextVideoUrls(inputDocument).some((url) => !videoEmbed(url))) throw new Error("Utilisez un lien vidéo YouTube ou Vimeo valide.");
       let descriptionContent = inputDocument;
@@ -530,6 +566,10 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         category: input.category,
         tags: input.tags,
         price: input.price,
+        compareAtPrice: input.compareAtPrice,
+        saveForLaterEnabled: input.saveForLaterEnabled ?? product.saveForLaterEnabled ?? true,
+        files: product.isRemote ? undefined : files ?? product.files,
+        fileName: files?.[0]?.fileName ?? (files === undefined ? product.fileName : undefined),
         currency: input.currency,
         cover: input.cover,
         coverLabel: input.coverLabel,
@@ -544,6 +584,8 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           category: updated.category,
           tags: updated.tags,
           amount: Math.round(updated.price * 100),
+          compare_at_amount: updated.compareAtPrice === undefined ? null : Math.round(updated.compareAtPrice * 100),
+          save_for_later_enabled: updated.saveForLaterEnabled,
           currency: updated.currency,
           cover: updated.cover,
           cover_label: updated.coverLabel,
@@ -553,8 +595,9 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           if (uploadedPublicPaths.length) await supabase.storage.from("product-rich-images").remove(uploadedPublicPaths);
           throw new Error(error.message);
         }
+        if (product.kind === "download" && files !== undefined) await saveRemoteProductFiles(supabase, user.id, productId, files, input.fileUploads ?? {});
       } else {
-        await writeLocalFiles(input.descriptionFiles ?? {});
+        await writeLocalFiles({ ...input.descriptionFiles, ...input.fileUploads });
       }
       setProducts((current) => current.map((item) => item.id === productId ? updated : item));
     },
@@ -753,11 +796,20 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(`gumroad-progress:${user?.id}:${productId}`, JSON.stringify(progress));
   }, [supabase, user]);
 
-  const toggleFavorite = useCallback((productId: string) => {
-    setFavorites((current) =>
-      current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId],
-    );
+  const loadProductFiles = useCallback(async (product: Pick<Product, "id" | "isRemote" | "files" | "fileName">) => {
+    if (product.isRemote) {
+      const response = await fetch(`/api/products/${encodeURIComponent(product.id)}/files`, { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Les fichiers ne sont pas accessibles.");
+      return normalizeProductFiles(payload.files);
+    }
+    return product.files ?? (product.fileName ? [{ id: crypto.randomUUID(), name: product.fileName, fileName: product.fileName, position: 0 }] : []);
   }, []);
+
+  const toggleFavorite = useCallback((productId: string) => {
+    const product = products.find((item) => item.id === productId);
+    setFavorites((current) => changeFavorite(current, productId, product ? product.saveForLaterEnabled : false));
+  }, [products]);
 
   const value = useMemo<MarketplaceContextValue>(
     () => ({
@@ -781,6 +833,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
       cancelSubscription,
       toggleFavorite,
       loadProductContent,
+      loadProductFiles,
       saveProductContent,
       loadCourseProgress,
       saveCourseProgress,
@@ -805,6 +858,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
       cancelSubscription,
       toggleFavorite,
       loadProductContent,
+      loadProductFiles,
       saveProductContent,
       loadCourseProgress,
       saveCourseProgress,

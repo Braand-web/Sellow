@@ -57,15 +57,16 @@ export function ProductPage() {
           <p className="page-eyebrow">{product.category}</p>
           <h1>{product.title}</h1>
           <p className="detail-subtitle">{product.subtitle}</p>
+          {product.compareAtPrice !== undefined && product.compareAtPrice > product.price && <p className="compare-at-price"><span className="sr-only">Prix de référence : </span><s>{formatPrice(product.compareAtPrice, product.currency)}</s></p>}
           <p className="detail-price">{formatPrice(product.price, product.currency)}{product.kind === "membership" && <small> / mois</small>}</p>
           <div className="demo-note"><ShieldCheck size={17} /><span>{liveMode ? liveProduct ? "Le paiement est traité sur le checkout hébergé SasPay." : "Fiche de présentation : le paiement réel n’est pas ouvert pour cet exemple." : "Checkout de démonstration. Aucun paiement réel ne sera effectué."}</span></div>
           {(!liveMode || liveProduct) && <Link className="button button-dark" href={`/checkout/${product.slug}`}>
             {product.kind === "membership" ? "Choisir cet abonnement" : product.kind === "service" ? "Demander ce service" : product.price === 0 ? "Obtenir le produit" : "Acheter ce produit"}
             <ArrowRight size={17} />
           </Link>}
-          <button className={`button button-light favorite-wide${saved ? " is-saved" : ""}`} type="button" aria-pressed={saved} onClick={() => toggleFavorite(product.id)}>
-            <Heart size={17} weight={saved ? "fill" : "regular"} /> {saved ? "Enregistré dans vos favoris" : "Enregistrer pour plus tard"}
-          </button>
+          {(product.saveForLaterEnabled !== false || saved) && <button className={`button button-light favorite-wide${saved ? " is-saved" : ""}`} type="button" aria-pressed={saved} onClick={() => toggleFavorite(product.id)}>
+            <Heart size={17} weight={saved ? "fill" : "regular"} /> {saved ? "Retirer des favoris" : "Enregistrer pour plus tard"}
+          </button>}
           <div className="detail-creator">
             <span className={`avatar avatar-${product.creatorTone}`}>{product.creatorInitials}</span>
             <div><Link href={`/createurs/${product.creatorSlug}`}>{product.creatorName}</Link><p>Créateur indépendant</p></div>

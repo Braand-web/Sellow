@@ -1030,3 +1030,26 @@ p { text-wrap: pretty; }
   .unified-video-volume { width: 60px; max-width: 18vw; }
   .unified-video-select { max-width: 108px; padding: var(--space-2); }
 }
+
+/* Seller sale options and downloadable resources. */
+.sale-options { margin-top: 24px; }
+.product-files-list { display: grid; gap: 16px; padding: 0; margin: 16px 0 0; list-style: none; }
+.product-file-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px; border: 1px solid var(--border, #e4e0d8); border-radius: 8px; }
+.product-file-actions { display: flex; gap: 8px; }
+.product-file-actions .button { padding: 12px; min-height: 44px; }
+.compare-at-price { color: var(--muted, #73716a); font-size: 14px; }
+.card-prices { display: grid; gap: 4px; text-align: right; }
+.card-prices strong { font-size: 14px; font-weight: 700; }
+.detail-cover .product-cover-custom { aspect-ratio: 1; }
+.detail-content > .compare-at-price { margin: 24px 0 0; font-size: 18px; }
+.detail-content > .compare-at-price + .detail-price { margin-top: 8px; }
+.library-downloads { display: grid; gap: 12px; min-width: 0; }
+.library-download-file { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.library-download-file > span { max-width: 240px; overflow-wrap: anywhere; font-size: 14px; }
+.rich-text-heading { flex-wrap: wrap; gap: 8px; }
+.rich-text-heading > label { margin-right: auto; }
+@media (max-width: 640px) {
+  .product-file-row { grid-template-columns: minmax(0, 1fr); }
+  .product-file-actions { justify-content: flex-end; }
+  .library-downloads { grid-column: 1 / -1; width: 100%; }
+}

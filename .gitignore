@@ -12,3 +12,6 @@ supabase/.temp/
 
 .vercel
 .env*
+
+# One-off private product publication material, never committed.
+private-import/

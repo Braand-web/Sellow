@@ -7,9 +7,12 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, BookOpenText, Camera, DownloadSimple, Package, Sparkle } from "@phosphor-icons/react";
 import type { ElementType } from "react";
 import { useMarketplace } from "@/app/providers";
-import { kindLabels, productKinds, type ProductContent, type ProductKind } from "@/lib/types";
+import { kindLabels, productKinds, type ProductContent, type ProductFile, type ProductKind } from "@/lib/types";
 import { emptyProductContent, hasPublishableContent } from "@/lib/product-content";
 import { ProductContentEditor } from "@/components/product-content-editor";
+import { ProductFilesEditor } from "@/components/product-files-editor";
+import { ProductSaleOptions } from "@/components/product-sale-options";
+import { formatPrice } from "@/components/product-card";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { documentFromPlainText, richTextToPlainText, type RichTextDocument } from "@/lib/rich-text";
 
@@ -42,7 +45,10 @@ export function NewProductPage() {
   const [tags, setTags] = useState("");
   const [price, setPrice] = useState("12");
   const [currency, setCurrency] = useState("EUR");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<ProductFile[]>([]);
+  const [fileUploads, setFileUploads] = useState<Record<string, File>>({});
+  const [compareAtPrice, setCompareAtPrice] = useState("");
+  const [saveForLaterEnabled, setSaveForLaterEnabled] = useState(true);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [coverImageName, setCoverImageName] = useState("");
   const [coverImageError, setCoverImageError] = useState<string | null>(null);
@@ -85,7 +91,10 @@ export function NewProductPage() {
         currency,
         cover: coverImage ?? coverForKind(kind),
         coverLabel: `${title.trim().toLocaleUpperCase("fr-FR").slice(0, 22)}\nÀ DÉCOUVRIR`,
-        file,
+        files,
+        fileUploads,
+        compareAtPrice: compareAtPrice === "" ? undefined : Number(compareAtPrice),
+        saveForLaterEnabled,
       });
       if (kind === "course" || kind === "membership") await saveProductContent(created.id, content, contentFiles, created);
       if (publishOnCreate) await togglePublished(created.id, created);
@@ -132,20 +141,21 @@ export function NewProductPage() {
               <div className="field-group"><label htmlFor="product-subtitle">Phrase de présentation</label><input className="field-input" id="product-subtitle" required maxLength={110} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} placeholder="Une phrase courte et précise" /></div>
               <RichTextEditor id="product-description" label="Description" required value={descriptionContent} onChange={setDescriptionContent} placeholder="Que recevra votre client ? À qui cette création peut-elle servir ?" files={descriptionFiles} onFilesChange={setDescriptionFiles} localContent={!supabaseConfigured || user.isDemo} />
               <div className="field-group"><label htmlFor="product-cover-image">Image de couverture</label><label className="file-drop" htmlFor="product-cover-image"><input id="product-cover-image" type="file" accept="image/jpeg,image/png,image/webp" aria-invalid={Boolean(coverImageError)} aria-describedby="cover-image-help" onChange={(event) => void selectCoverImage(event.currentTarget)} /><Camera size={22} /><strong>{coverImageBusy ? "Optimisation de l’image…" : coverImageName || "Choisir une image"}</strong><span id="cover-image-help">JPG, PNG ou WebP. Image compressée automatiquement, 12 Mo maximum.</span></label>{coverImage && <button className="text-link" type="button" onClick={() => { setCoverImage(null); setCoverImageName(""); }}>Retirer l’image</button>}{coverImageError && <p className="form-error" role="alert">{coverImageError}</p>}</div>
-              {kind === "download" && <div className="field-group"><label htmlFor="product-file">Fichier à remettre</label><label className="file-drop" htmlFor="product-file"><input id="product-file" type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><DownloadSimple size={22} /><strong>{file?.name ?? "Choisir un fichier"}</strong><span>{file ? `${(file.size / 1024 / 1024).toFixed(2)} Mo` : "Fichier privé, remis après l’achat"}</span></label></div>}
+              {kind === "download" && <ProductFilesEditor value={files} uploads={fileUploads} onChange={setFiles} onUploadsChange={setFileUploads} />}
               {kind === "course" && <div className="course-outline"><BookOpenText size={20} /><div><strong>Apprentissage à son rythme</strong><p>Créez les modules, leçons et vidéos plus bas.</p></div><span>À préparer</span></div>}
               {kind === "membership" && <div className="course-outline"><Sparkle size={20} /><div><strong>Accès mensuel</strong><p>{liveMode ? "Le client paie le mois sur SasPay; les renouvellements sont manuels." : "Le checkout de démonstration simulera un abonnement mensuel."}</p></div><span>Mensuel</span></div>}
               {kind === "physical" && <div className="course-outline"><Package size={20} /><div><strong>Expédition manuelle</strong><p>{liveMode ? "Vous organisez l’expédition après confirmation de la commande." : "Vous recevrez l’adresse du client avec chaque commande de démonstration."}</p></div><span>Par vous</span></div>}
               {kind === "service" && <div className="course-outline"><Camera size={20} /><div><strong>Prestation à organiser</strong><p>Le client peut ajouter un message au moment de la commande.</p></div><span>Par vous</span></div>}
               <div className="form-two-col">
-                <div className="field-group"><label htmlFor="product-category">Catégorie</label><select className="field-select" id="product-category" value={category} onChange={(event) => setCategory(event.target.value)}><option>Design</option><option>Photographie</option><option>Illustration</option><option>Développement</option><option>Musique</option><option>Papeterie</option><option>Créativité</option></select></div>
+                <div className="field-group"><label htmlFor="product-category">Catégorie</label><select className="field-select" id="product-category" value={category} onChange={(event) => setCategory(event.target.value)}><option>Design</option><option>Photographie</option><option>Illustration</option><option>Développement</option><option>Musique</option><option>Papeterie</option><option>Créativité</option><option>Entrepreneuriat</option></select></div>
                 <div className="field-group"><label htmlFor="product-tags">Mots clés</label><input className="field-input" id="product-tags" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="figma, création, modèle" /><span className="field-help">Séparez les mots clés par une virgule.</span></div>
               </div>
             </div>
           </div>
           <div className="form-panel"><div className="form-section-heading"><span>03</span><div><h2>Choisissez un prix</h2><p>Le prix sera affiché dans la devise choisie.</p></div></div>
-            <div className="form-two-col price-row"><div className="field-group"><label htmlFor="product-price">Prix</label><input className="field-input" id="product-price" type="number" min="0" step="0.01" required value={price} onChange={(event) => setPrice(event.target.value)} /></div><div className="field-group"><label htmlFor="product-currency">Devise</label><select className="field-select" id="product-currency" value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="EUR">EUR · Euro</option><option value="USD">USD · Dollar américain</option><option value="XOF">XOF · Franc CFA</option><option value="MAD">MAD · Dirham marocain</option></select></div></div>
+            <div className="form-two-col price-row"><div className="field-group"><label htmlFor="product-price">Prix</label><input className="field-input" id="product-price" type="number" min="0" step="0.01" required value={price} onChange={(event) => setPrice(event.target.value)} /></div><div className="field-group"><label htmlFor="product-currency">Devise</label><select className="field-select" id="product-currency" value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="EUR">EUR · Euro</option><option value="USD">USD · Dollar américain</option><option value="XOF">XOF · FCFA Afrique de l’Ouest</option><option value="XAF">XAF · FCFA Afrique centrale</option><option value="MAD">MAD · Dirham marocain</option></select></div></div>
           </div>
+          <div className="form-panel"><h2>Options de vente</h2><ProductSaleOptions price={price} compareAtPrice={compareAtPrice} saveForLaterEnabled={saveForLaterEnabled} currency={currency} onCompareAtPriceChange={setCompareAtPrice} onSaveForLaterChange={setSaveForLaterEnabled} /></div>
           {(kind === "course" || kind === "membership") && <ProductContentEditor kind={kind} value={content} products={products} creatorId={user.id} localContent={!supabaseConfigured || user.isDemo} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}
         </section>
         <aside className="new-product-aside">
@@ -156,7 +166,8 @@ export function NewProductPage() {
               <span>{kindLabels[kind]}</span><strong>{title || "Votre création"}</strong>
             </div>
             <h3>{title || "Nom du produit"}</h3><p>{subtitle || "Votre phrase de présentation apparaîtra ici."}</p>
-            <div className="preview-price">{price ? new Intl.NumberFormat("fr-FR", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(price)) : "Prix"}{kind === "membership" ? " / mois" : ""}</div>
+            {compareAtPrice && Number(compareAtPrice) > Number(price) && <s className="compare-at-price">{formatPrice(Number(compareAtPrice), currency)}</s>}
+            <div className="preview-price">{price ? formatPrice(Number(price), currency) : "Prix"}{kind === "membership" ? " / mois" : ""}</div>
           </div>
           <div className="demo-note"><Sparkle size={16} /><span>Enregistrez en brouillon ou publiez directement le produit. Vous pourrez ensuite le modifier dans votre espace.</span></div>
           {error && <p className="form-error" role="alert">{error}</p>}

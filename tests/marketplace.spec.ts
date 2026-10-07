@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 async function registerDemoCreator(page: import("@playwright/test").Page, email: string, name = "Mina Créatrice") {
   await page.goto("/inscription");
@@ -317,4 +318,119 @@ test("les actions de commande Supabase refusent une requête sans session", asyn
   expect(cancellation.status()).toBe(401);
   const download = await page.request.get("/api/files/00000000-0000-4000-8000-000000000001");
   expect(download.status()).toBe(401);
+  const fileList = await page.request.get("/api/products/00000000-0000-4000-8000-000000000001/files");
+  expect(fileList.status()).toBe(401);
+  const fileSave = await page.request.put("/api/products/00000000-0000-4000-8000-000000000001/files", { data: { files: [] } });
+  expect(fileSave.status()).toBe(401);
+});
+
+test("fichiers multiples, prix barré et favoris se modifient et se rechargent", async ({ page }, testInfo) => {
+  const email = `fichiers-${Date.now()}@exemple.test`;
+  await registerDemoCreator(page, email);
+  await page.goto("/studio/nouveau");
+  await page.getByLabel("Nom du produit").fill("Pack ressources multiples");
+  await page.getByLabel("Phrase de présentation").fill("Un guide et ses ressources téléchargeables.");
+  await page.locator('#product-description[contenteditable="true"]').fill("Le guide et ses bonus, avec plusieurs fichiers privés à télécharger séparément.");
+  await page.getByLabel("Prix", { exact:true }).fill("5000");
+  await page.getByLabel("Devise").selectOption("XAF");
+  await page.getByLabel("Prix barré (facultatif)").fill("25000");
+  await page.locator("#product-file").setInputFiles([
+    { name:"ressource.txt", mimeType:"text/plain", buffer:Buffer.from("guide-a") },
+    { name:"ressource.txt", mimeType:"text/plain", buffer:Buffer.from("bonus-b") },
+  ]);
+  await page.getByLabel("Nom affiché du fichier 1").fill("Guide complet");
+  await page.getByLabel("Nom affiché du fichier 2").fill("Bonus pratique");
+  await page.getByRole("button", {name:"Monter le fichier 2"}).click();
+  await expect(page.getByLabel("Nom affiché du fichier 1")).toHaveValue("Bonus pratique");
+  await page.getByRole("button", {name:"Publier le produit",exact:true}).click();
+  await expect(page).toHaveURL(/studio\?created=/);
+  await page.getByRole("link", {name:"Voir Pack ressources multiples",exact:true}).click();
+  await expect(page).toHaveURL(/produits\/pack-ressources-multiples-/);
+  const productUrl = page.url();
+  await expect(page.locator(".detail-price")).toHaveText(/5\s*000 FCFA/);
+  await expect(page.locator(".detail-content .compare-at-price")).toContainText(/25\s*000 FCFA/);
+  await page.getByRole("button", {name:"Enregistrer pour plus tard"}).click();
+  await page.goto("/studio");
+  await page.getByRole("link", {name:"Modifier Pack ressources multiples"}).click();
+  await expect(page.getByLabel("Nom affiché du fichier 1")).toHaveValue("Bonus pratique");
+  await expect(page.getByLabel("Prix barré (facultatif)")).toHaveValue("25000");
+  await page.getByLabel("Nom affiché du fichier 1").fill("Bonus actualisé");
+  await page.getByLabel("Autoriser « Enregistrer pour plus tard »").uncheck();
+  await page.locator("#product-file").setInputFiles({name:"checklist.txt",mimeType:"text/plain",buffer:Buffer.from("checklist-c")});
+  await page.getByRole("button", {name:"Retirer le fichier 2"}).click();
+  await page.getByRole("button", {name:"Enregistrer les modifications"}).click();
+  await expect(page).toHaveURL(/studio$/);
+  await page.goto(productUrl);
+  await page.getByRole("button", {name:"Retirer des favoris",exact:true}).click();
+  await expect(page.getByRole("button", {name:"Enregistrer pour plus tard"})).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("button", {name:"Enregistrer pour plus tard"})).toHaveCount(0);
+  await page.goto("/");
+  await page.getByLabel("Rechercher dans les produits").fill("Pack ressources multiples");
+  await expect(page.locator(".product-card")).toHaveCount(1);
+  await expect(page.locator(".product-card .favorite-button")).toHaveCount(0);
+  await expect(page.locator(".product-card .compare-at-price")).toHaveText(/25\s*000 FCFA/);
+  await page.goto(productUrl);
+  await page.getByRole("link", {name:"Acheter ce produit"}).click();
+  await expect(page.locator(".checkout-summary")).toContainText(/5\s*000 FCFA/);
+  await expect(page.locator(".checkout-summary")).not.toContainText(/25\s*000 FCFA/);
+  await page.getByLabel("Adresse e mail").fill(email);
+  await page.getByLabel(/Je comprends qu’il s’agit/).check();
+  await page.getByRole("button", {name:"Confirmer l’achat simulé"}).click();
+  await page.getByRole("link", {name:"Ouvrir ma bibliothèque"}).click();
+  await expect(page).toHaveURL(/bibliotheque/);
+  await page.reload();
+  await expect(page.locator(".library-download-file")).toHaveCount(2);
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", {name:"Télécharger Bonus actualisé",exact:true}).click();
+  const download = await downloadPromise;
+  await download.saveAs(testInfo.outputPath("bonus.txt"));
+  expect(await readFile(testInfo.outputPath("bonus.txt"),"utf8")).toBe("bonus-b");
+  const checklistPromise = page.waitForEvent("download");
+  await page.getByRole("button", {name:"Télécharger checklist.txt",exact:true}).click();
+  const checklist = await checklistPromise;
+  await checklist.saveAs(testInfo.outputPath("checklist.txt"));
+  expect(await readFile(testInfo.outputPath("checklist.txt"),"utf8")).toBe("checklist-c");
+});
+
+test("modèle AIDA éditable, contrôles des prix et formulaire mobile", async ({ page }) => {
+  await registerDemoCreator(page, `aida-${Date.now()}@exemple.test`);
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/studio/nouveau");
+  await page.getByLabel("Nom du produit").fill("Mon guide pratique AIDA");
+  await page.getByLabel("Phrase de présentation").fill("Une ressource pour avancer à son rythme.");
+  await page.getByRole("button", {name:"Modèle AIDA"}).click();
+  const editor = page.locator('#product-description[contenteditable="true"]');
+  await expect(editor).toContainText("Ce que vous recevez");
+  await expect(editor.locator("h2")).toHaveCount(4);
+  await page.getByLabel("Prix barré (facultatif)").fill("5");
+  await page.getByRole("button", {name:"Publier le produit",exact:true}).click();
+  await expect(page).toHaveURL(/studio\/nouveau/);
+  expect(await page.getByLabel("Prix barré (facultatif)").evaluate((element: HTMLInputElement) => element.validity.valid)).toBe(false);
+  await page.getByLabel("Prix barré (facultatif)").fill("25");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByLabel("Autoriser « Enregistrer pour plus tard »").focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByLabel("Autoriser « Enregistrer pour plus tard »")).not.toBeChecked();
+  await page.getByRole("button", {name:"Publier le produit",exact:true}).click();
+  await expect(page).toHaveURL(/studio\?created=/);
+  await page.getByRole("link", {name:"Modifier Mon guide pratique AIDA"}).click();
+  await expect(page.locator('#edit-description[contenteditable="true"] h2')).toHaveCount(4);
+  await expect(page.getByLabel("Autoriser « Enregistrer pour plus tard »")).not.toBeChecked();
+});
+
+test("un ancien produit à fichier unique conserve son téléchargement local", async ({ page }, testInfo) => {
+  await page.goto("/checkout/kit-identite-vivante");
+  await page.getByLabel("Adresse e mail").fill("legacy-fichier@exemple.test");
+  await page.getByLabel(/Je comprends qu’il s’agit/).check();
+  await page.getByRole("button", {name:"Confirmer l’achat simulé"}).click();
+  await page.getByRole("link", {name:"Ouvrir ma bibliothèque"}).click();
+  await expect(page).toHaveURL(/bibliotheque/);
+  await page.reload();
+  const event = page.waitForEvent("download");
+  await page.getByRole("button", {name:"Télécharger kit-identite-vivante.zip"}).click();
+  const download = await event;
+  expect(download.suggestedFilename()).toBe("kit-identite-vivante.zip");
+  await download.saveAs(testInfo.outputPath("legacy.txt"));
+  expect(await readFile(testInfo.outputPath("legacy.txt"),"utf8")).toContain("fichier de démonstration");
 });
