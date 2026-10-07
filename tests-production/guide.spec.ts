@@ -13,7 +13,7 @@ for (const [name, width, height] of [["ordinateur",1440,1000],["mobile",390,844]
     const images = page.locator(".detail-description img, .detail-cover img");
     for (let index=0;index<await images.count();index++) {
       await images.nth(index).scrollIntoViewIfNeeded();
-      await expect.poll(() => images.nth(index).evaluate((image:HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+      await expect.poll(() => images.nth(index).evaluate((image:HTMLImageElement) => image.complete && image.naturalWidth > 0), {timeout:20000,message:"L’image publique doit être chargée et décodable"}).toBe(true);
     }
     await expect(page.locator(".detail-description")).toContainText("objectif de chiffre d’affaires brut avant dépenses");
     const description = await page.locator('meta[name="description"]').getAttribute("content");

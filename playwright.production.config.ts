@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests-production",
+  outputDir: "./.vercel/test-results-production",
   fullyParallel: true,
   workers: 2,
   timeout: 45_000,
