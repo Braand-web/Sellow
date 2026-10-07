@@ -124,6 +124,7 @@ export type Order = {
   membershipExpiresAt?: string;
   membershipRenewalCancelledAt?: string;
   checkoutUrl?: string;
+  requiresEmailVerification?: boolean;
   shippingAddress?: string;
   buyerNote?: string;
   isRemote?: boolean;

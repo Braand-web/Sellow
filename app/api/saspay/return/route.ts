@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { SasPayPaymentProvider } from "@/lib/payment/server-provider";
 import { finalizeSasPayPayment } from "@/lib/payment/settlement";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { trackedOrder } from "@/lib/checkout-identity";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -10,18 +10,10 @@ export async function GET(request: Request) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? url.origin;
   if (!orderId) return NextResponse.redirect(new URL("/bibliotheque?paiement=introuvable", appUrl));
 
-  const authClient = await getSupabaseServerClient();
-  const { data: authData } = authClient ? await authClient.auth.getUser() : { data: { user: null } };
   const admin = getSupabaseAdmin();
-  if (!authData.user || !admin) return NextResponse.redirect(new URL("/connexion?next=%2Fbibliotheque", appUrl));
-
-  const { data: order } = await admin.from("orders")
-    .select("id, buyer_id, product_slug, provider_session_id, status")
-    .eq("id", orderId)
-    .eq("buyer_id", authData.user.id)
-    .eq("provider", "saspay")
-    .maybeSingle();
-  if (!order) return NextResponse.redirect(new URL("/bibliotheque?paiement=introuvable", appUrl));
+  const tracked = admin && await trackedOrder(admin, request, orderId);
+  if (!tracked || !admin || tracked.order?.provider !== "saspay") return NextResponse.redirect(new URL(`/achats/retrouver?commande=${encodeURIComponent(orderId)}`, appUrl));
+  const order = tracked.order;
 
   if (order.status !== "paid" && order.provider_session_id) {
     try {

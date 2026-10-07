@@ -1034,3 +1034,13 @@ p { text-wrap: pretty; }
   .unified-video-volume { width: 60px; max-width: 18vw; }
   .unified-video-select { max-width: 108px; padding: var(--space-2); }
 }
+
+/* Purchase verification shares the existing accessible form controls. */
+.email-access-form { width: 100%; max-width: 480px; margin: 24px auto 0; text-align: left; }
+.email-access-intro { display: flex; gap: 8px; align-items: flex-start; }
+.email-access-form .text-link { margin-top: 16px; }
+.email-access-form .text-link:disabled { opacity: .55; cursor: default; }
+.otp-input { font-variant-numeric: tabular-nums; letter-spacing: .15em; }
+.auth-email-link { margin-top: 24px; }
+.checkout-signin { display: inline-flex; margin-bottom: 16px; }
+.email-access-form .field-input[readonly] { background: #f5f3ee; }

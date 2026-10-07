@@ -28,6 +28,15 @@ export function OrderContentPage() {
   const membershipActive = Boolean(order && order.productKind === "membership" && isPaid && (!order.membershipExpiresAt || currentTime === 0 || new Date(order.membershipExpiresAt).getTime() > currentTime));
 
   useEffect(() => {
+    if (!ready || !order || !isBuyer || !isPaid || order.productKind !== "download" || !order.isRemote) return;
+    if (new URLSearchParams(window.location.search).get("telecharger") !== "1") return;
+    window.history.replaceState(null, "", window.location.pathname);
+    const anchor = document.createElement("a");
+    anchor.href = `/api/files/${encodeURIComponent(order.id)}`;
+    anchor.click();
+  }, [ready, order, isBuyer, isPaid]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => setCurrentTime(Date.now()), 0);
     return () => window.clearTimeout(timer);
   }, [order?.membershipExpiresAt]);
@@ -102,7 +111,7 @@ export function OrderContentPage() {
 
       {order.productKind === "physical" && <section className="content-panel"><p className="page-eyebrow">Reçu de commande</p><h2>Votre objet est commandé</h2><p className="content-copy">L’expédition est organisée manuellement par le créateur.</p><div className="receipt-detail"><Package size={20} /><div><strong>Adresse de livraison</strong><p>{order.shippingAddress || "Aucune adresse enregistrée"}</p></div></div><div className="receipt-detail"><CheckCircle size={20} /><div><strong>Prochaine étape</strong><p>{isDemo ? "Aucun colis ne sera expédié depuis cette démonstration." : "Le créateur prépare l’envoi."}</p></div></div></section>}
       {order.productKind === "service" && <section className="content-panel"><p className="page-eyebrow">Votre demande</p><h2>Le créateur organisera la suite</h2><p className="content-copy">Les services sont planifiés directement avec la personne qui les propose.</p><div className="receipt-detail"><BookOpenText size={20} /><div><strong>Votre message</strong><p>{order.buyerNote || "Aucun message ajouté."}</p></div></div>{isDemo && <div className="demo-note"><CheckCircle size={17} /><span>En mode démonstration, aucune notification n’est envoyée au créateur.</span></div>}</section>}
-      {order.productKind === "download" && <section className="content-panel"><p className="page-eyebrow">Fichier numérique</p><h2>Votre ressource est prête</h2><p className="content-copy">Téléchargez votre fichier depuis la bibliothèque.</p><Link className="button button-dark" href="/bibliotheque">Ouvrir ma bibliothèque</Link></section>}
+      {order.productKind === "download" && <section className="content-panel"><p className="page-eyebrow">Fichier numérique</p><h2>Votre ressource est prête</h2><p className="content-copy">Votre ressource reste disponible dans votre bibliothèque.</p>{order.isRemote && <a className="button button-dark" href={`/api/files/${encodeURIComponent(order.id)}`}>Télécharger mes fichiers</a>}<Link className="button button-dark" href="/bibliotheque">Ouvrir ma bibliothèque</Link></section>}
       <p className="content-disclaimer">Commande {order.id.slice(0, 14)} · {new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date(order.createdAt))}</p>
     </div>
   );

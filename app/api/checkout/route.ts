@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { consumeRateLimit, ensureGuestSession } from "@/lib/checkout-identity";
+import { normalizeBuyerEmail } from "@/lib/guest-access.mjs";
 import { paymentCopy } from "@/lib/copy.mjs";
 import { NextResponse } from "next/server";
 import { currencyFractionDigits } from "@/lib/payment/accounting.mjs";
@@ -33,12 +35,13 @@ const publicOrder = (row: Record<string, unknown>, checkoutUrl?: string) => ({
   createdAt: String(row.created_at ?? new Date().toISOString()),
   membershipExpiresAt: row.membership_expires_at ? String(row.membership_expires_at) : undefined,
   ...(checkoutUrl ? { checkoutUrl } : {}),
+  requiresEmailVerification: row.purchase_identity === "guest" && !row.buyer_id,
   isRemote: true,
 });
 
 function sameOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
+  return (!origin || origin === new URL(request.url).origin) && request.headers.get("sec-fetch-site") !== "cross-site";
 }
 
 function productFromRow(row: Record<string, unknown>): Product {
@@ -76,16 +79,19 @@ export async function POST(request: Request) {
   const authClient = await getSupabaseServerClient();
   const { data: authData } = authClient ? await authClient.auth.getUser() : { data: { user: null } };
   const buyer = authData.user;
-  if (!buyer?.email) return NextResponse.json({ error: "Connectez-vous pour acheter ce produit." }, { status: 401 });
+  const mode = process.env.PAYMENT_MODE ?? (process.env.NODE_ENV === "production" ? "disabled" : "demo");
+  const guestEnabled = mode === "saspay" && process.env.GUEST_CHECKOUT_ENABLED === "true" && process.env.EMAIL_OTP_ENABLED === "true";
+  if (!buyer?.email && !guestEnabled) return NextResponse.json({ error: "Connectez-vous pour acheter ce produit." }, { status: 401 });
 
   let body: CheckoutBody;
   try { body = await request.json() as CheckoutBody; }
   catch { return NextResponse.json({ error: "La demande de paiement est invalide." }, { status: 400 }); }
 
-  const slug = body.slug?.trim();
-  const buyerEmail = buyer.email.trim().toLowerCase();
-  const idempotencyKey = body.idempotencyKey?.trim();
-  if (!slug || !idempotencyKey || idempotencyKey.length < 16 || !buyerEmail.includes("@")) {
+  if (!body || typeof body !== "object" || (body.shippingAddress !== undefined && typeof body.shippingAddress !== "string") || (body.buyerNote !== undefined && typeof body.buyerNote !== "string")) return NextResponse.json({ error: "La demande de paiement est invalide." }, { status: 400 });
+  const slug = typeof body.slug === "string" ? body.slug.trim() : "";
+  const buyerEmail = normalizeBuyerEmail(buyer?.email ?? body.buyerEmail);
+  const idempotencyKey = typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : "";
+  if (!slug || !idempotencyKey || idempotencyKey.length < 16 || idempotencyKey.length > 128 || !buyerEmail) {
     return NextResponse.json({ error: "Vérifiez le produit, l’adresse e mail et la référence de commande." }, { status: 400 });
   }
 
@@ -97,7 +103,6 @@ export async function POST(request: Request) {
   }
   const product = productFromRow(row as Record<string, unknown>);
 
-  const mode = process.env.PAYMENT_MODE ?? (process.env.NODE_ENV === "production" ? "disabled" : "demo");
   if (mode === "saspay") {
     if (!process.env.SASPAY_API_KEY || !process.env.SASPAY_WEBHOOK_SECRET) {
       return NextResponse.json({ error: paymentCopy.unavailable }, { status: 503 });
@@ -113,10 +118,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "La conversion de devise est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
     }
 
+    let guestSessionId: string | null = null;
+    if (!buyer) {
+      if (!await consumeRateLimit(admin, request, "guest-checkout", 30, 3600)) return NextResponse.json({ error: "Trop de tentatives. Réessayez dans quelques minutes." }, { status: 429 });
+      try { guestSessionId = (await ensureGuestSession(admin, request)).id; }
+      catch { return NextResponse.json({ error: paymentCopy.unavailable }, { status: 503 }); }
+    }
     const { data: prepared, error: prepareError } = await admin.rpc("prepare_saspay_order", {
       p_idempotency_key: idempotencyKey,
       p_access_token: `${randomUUID()}${randomUUID().replaceAll("-", "")}`,
-      p_buyer_id: buyer.id,
+      p_buyer_id: buyer?.id ?? null,
+      p_guest_session_id: guestSessionId,
       p_buyer_email: buyerEmail,
       p_product_slug: slug,
       p_shipping_address: body.shippingAddress?.trim() ?? "",
@@ -155,7 +167,7 @@ export async function POST(request: Request) {
         amount: (Number(orderRow.amount) / 100).toFixed(2),
         currency: String(orderRow.currency),
         customerEmail: buyerEmail,
-        customerName: String(buyer.user_metadata?.name ?? buyer.email?.split("@")[0] ?? "Client Sellow"),
+        customerName: String(buyer?.user_metadata?.name ?? buyer?.email?.split("@")[0] ?? "Client Sellow"),
         productTitle: product.title,
         returnUrl: `${baseUrl}/api/saspay/return?order=${encodeURIComponent(String(orderRow.id))}`,
       });
@@ -178,8 +190,9 @@ export async function POST(request: Request) {
       }).eq("id", orderRow.id).eq("status", "pending").select("id").maybeSingle();
       if (saveSessionError) throw new Error("Le lien de paiement n’a pas pu être enregistré.");
       if (!savedSession) {
-        const { data: currentOrder } = await admin.from("orders").select("*")
-          .eq("id", orderRow.id).eq("buyer_id", buyer.id).maybeSingle();
+        let currentQuery = admin.from("orders").select("*").eq("id", orderRow.id);
+        currentQuery = buyer ? currentQuery.eq("buyer_id", buyer.id) : currentQuery.eq("guest_session_id", guestSessionId);
+        const { data: currentOrder } = await currentQuery.maybeSingle();
         if (currentOrder?.status === "paid") return NextResponse.json({ order: publicOrder(currentOrder) });
         throw new Error("La commande n’est plus en attente de paiement.");
       }
@@ -199,6 +212,7 @@ export async function POST(request: Request) {
     }
   }
 
+  if (!buyer) return NextResponse.json({ error: "Connectez-vous pour acheter ce produit." }, { status: 401 });
   const demoEnabled = process.env.NODE_ENV !== "production" && (process.env.DEMO_CHECKOUT_ENABLED === "true" || mode === "demo");
   if (!demoEnabled) return NextResponse.json({ error: "Le mode de paiement n’est pas configuré." }, { status: 503 });
 

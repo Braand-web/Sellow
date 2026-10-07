@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "payment:diagnose": "node scripts/saspay-checkout-diagnostic.mjs",
-    "test": "node --test lib/copy.test.mjs lib/order-access.test.mjs lib/content-access.test.mjs lib/payment/accounting.test.mjs lib/payment/saspay-signature.test.mjs lib/payment/saspay-checkout.test.mjs && playwright test"
+    "test": "node --test lib/copy.test.mjs lib/order-access.test.mjs lib/content-access.test.mjs lib/guest-access.test.mjs lib/guest-database.test.mjs lib/email-worker.test.mjs lib/payment/accounting.test.mjs lib/payment/saspay-signature.test.mjs lib/payment/saspay-checkout.test.mjs && playwright test"
   },
   "dependencies": {
     "@fontsource/manrope": "latest",
@@ -29,6 +29,7 @@
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "^1.63.0",
     "@types/node": "latest",
     "@types/react": "latest",

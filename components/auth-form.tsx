@@ -58,6 +58,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         {success && <p className="form-success" role="status">{success}</p>}
         {!success && <button className="button button-dark" type="submit" disabled={busy}>{busy ? isSignup ? "Création du compte…" : "Connexion…" : isSignup ? "Créer mon compte" : "Se connecter"}<ArrowRight size={17} /></button>}
       </form>
+      {!isSignup && <Link className="text-link auth-email-link" href="/achats/retrouver">Retrouver mes achats sans mot de passe</Link>}
       <div className="form-bottom">{isSignup ? <>Vous avez déjà un compte ? <Link href="/connexion">Se connecter</Link></> : <>Nouveau sur Sellow ? <Link href="/inscription">Créer un compte</Link></>}</div>
     </div>
   );

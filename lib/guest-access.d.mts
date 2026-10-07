@@ -1,0 +1,10 @@
+export const GUEST_COOKIE: string;
+export const GUEST_SESSION_SECONDS: number;
+export function normalizeBuyerEmail(value: unknown): string | null;
+export function tokenHash(value: string): string;
+export function newGuestSecret(): string;
+export function guestCookieSecret(value: string | null): string | null;
+export function guestSessionMatches(session: { token_hash: string; expires_at: string } | null, secret: string | null, now?: number): boolean;
+export function orderCanBeTracked(order: Record<string, unknown> | null, userId?: string | null, guestSessionId?: string | null): boolean;
+export function purchaseDestination(order: { id: string; productKind: string; productSlug: string }): string;
+export function safeRecoveryNext(value: unknown): string;

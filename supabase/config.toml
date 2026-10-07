@@ -1,0 +1,2 @@
+[functions.purchase-emails]
+verify_jwt = false

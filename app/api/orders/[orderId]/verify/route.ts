@@ -2,24 +2,16 @@ import { NextResponse } from "next/server";
 import { SasPayPaymentProvider } from "@/lib/payment/server-provider";
 import { finalizeSasPayPayment } from "@/lib/payment/settlement";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { consumeRateLimit, sameOrigin, trackedOrder } from "@/lib/checkout-identity";
 
 export async function POST(request: Request, context: { params: Promise<{ orderId: string }> }) {
   const { orderId } = await context.params;
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return NextResponse.json({ error: "Origine de la demande non autorisée." }, { status: 403 });
-  const authClient = await getSupabaseServerClient();
-  const { data: authData } = authClient ? await authClient.auth.getUser() : { data: { user: null } };
+  if (!sameOrigin(request)) return NextResponse.json({ error: "Origine de la demande non autorisée." }, { status: 403 });
   const admin = getSupabaseAdmin();
-  if (!authData.user || !admin) return NextResponse.json({ error: "Connectez-vous pour vérifier ce paiement." }, { status: 401 });
-
-  const { data: order } = await admin.from("orders")
-    .select("id, buyer_id, status, provider_session_id")
-    .eq("id", orderId)
-    .eq("buyer_id", authData.user.id)
-    .eq("provider", "saspay")
-    .maybeSingle();
-  if (!order) return NextResponse.json({ error: "Commande introuvable." }, { status: 404 });
+  const tracked = admin && await trackedOrder(admin, request, orderId);
+  if (!tracked || !admin || tracked.order?.provider !== "saspay") return NextResponse.json({ error: "Commande introuvable." }, { status: 404 });
+  if (!await consumeRateLimit(admin, request, "payment-verify", 30, 60, orderId)) return NextResponse.json({ error: "La vérification est en cours. Réessayez dans un instant." }, { status: 429 });
+  const order = tracked.order;
   if (order.status === "paid") return NextResponse.json({ status: "paid" });
   if (!order.provider_session_id) return NextResponse.json({ error: "La session de paiement est introuvable." }, { status: 409 });
 

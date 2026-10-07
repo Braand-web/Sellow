@@ -61,7 +61,7 @@ export function LibraryPage() {
   if (accountLibrary && !remoteAccount) return (
     <div className="page-wrap">
       <div className="dashboard-header"><div><p className="page-eyebrow">Vos achats sur Sellow</p><h1>Ma bibliothèque</h1><p>Vos commandes et contenus sont associés au compte qui a réalisé l’achat.</p></div></div>
-      <div className="empty-state library-empty"><BookOpenText size={30} /><h2>Connectez-vous pour retrouver vos achats</h2><p>Ouvrez votre bibliothèque pour télécharger vos fichiers, suivre vos cours et accéder à vos abonnements.</p><Link className="button button-dark" href="/connexion?next=%2Fbibliotheque">Se connecter <ArrowRight size={16} /></Link><Link className="text-link" href="/#decouvrir">Explorer les produits</Link></div>
+      <div className="empty-state library-empty"><BookOpenText size={30} /><h2>Connectez-vous pour retrouver vos achats</h2><p>Ouvrez votre bibliothèque pour télécharger vos fichiers, suivre vos cours et accéder à vos abonnements.</p><Link className="button button-dark" href="/connexion?next=%2Fbibliotheque">Se connecter <ArrowRight size={16} /></Link><Link className="text-link" href="/achats/retrouver">Retrouver mes achats par e-mail</Link><Link className="text-link" href="/#decouvrir">Explorer les produits</Link></div>
     </div>
   );
   return (

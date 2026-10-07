@@ -31,6 +31,7 @@ type PurchaseInput = {
   buyerEmail: string;
   shippingAddress?: string;
   buyerNote?: string;
+  idempotencyKey?: string;
 };
 
 type MarketplaceContextValue = {
@@ -574,7 +575,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
     [products, supabase, user],
   );
 
-  const purchase = useCallback(async ({ product, buyerEmail, shippingAddress, buyerNote }: PurchaseInput) => {
+  const purchase = useCallback(async ({ product, buyerEmail, shippingAddress, buyerNote, idempotencyKey }: PurchaseInput) => {
     let order: Order;
     const remoteProduct = Boolean(supabase && product.isRemote);
     if (process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay" && !remoteProduct) {
@@ -589,7 +590,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
           buyerEmail: buyerEmail.trim().toLowerCase(),
           shippingAddress,
           buyerNote,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
         }),
       });
       const payload = await response.json();

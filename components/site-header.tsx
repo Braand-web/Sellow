@@ -48,9 +48,9 @@ export function SiteHeader() {
               </Link>
             </>
           ) : (
-            <Link className="header-login" href={`/connexion?next=${encodeURIComponent(pathname === "/" ? "/studio" : pathname)}`}>
+            <><Link className="header-library" href="/achats/retrouver">Mes achats</Link><Link className="header-login" href={`/connexion?next=${encodeURIComponent(pathname === "/" ? "/studio" : pathname)}`}>
               Se connecter
-            </Link>
+            </Link></>
           )}
           <Link className="button button-dark button-small header-cta" href={user ? "/studio/nouveau" : "/inscription"} aria-label={user ? "Ajouter un produit" : "Créer ma boutique"}>
             <Storefront size={16} weight="bold" />
