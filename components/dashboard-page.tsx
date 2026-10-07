@@ -1,5 +1,6 @@
 "use client";
 
+import { publicErrorMessage } from "@/lib/copy.mjs";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -23,7 +24,7 @@ export function DashboardPage() {
   async function changeVisibility(id: string) {
     setBusyId(id);
     try { await togglePublished(id); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "Le produit n’a pas pu être modifié."); }
+    catch (error) { setMessage(publicErrorMessage(error, "Le produit n’a pas pu être modifié.")); }
     finally { setBusyId(null); }
   }
 
@@ -31,7 +32,7 @@ export function DashboardPage() {
     const product = myProducts.find((item) => item.id === id);
     if (!product || !window.confirm(`Supprimer « ${product.title} » ?`)) return;
     try { await deleteProduct(id); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "Le produit n’a pas pu être supprimé."); }
+    catch (error) { setMessage(publicErrorMessage(error, "Le produit n’a pas pu être supprimé.")); }
   }
 
   async function signOut() {
@@ -43,9 +44,9 @@ export function DashboardPage() {
 
   return (
     <div className="page-wrap dashboard-wrap">
-      <div className="dashboard-header"><div><p className="page-eyebrow">Bonjour {user.name.split(" ")[0]}</p><h1>Votre espace créateur</h1><p>Gérez vos créations et partagez les avec votre communauté.</p></div><div className="dashboard-head-actions"><Link className="button button-dark" href="/studio/nouveau"><Plus size={18} weight="bold" /> Ajouter un produit</Link><button className="icon-button" type="button" onClick={() => void signOut()} aria-label="Se déconnecter"><SignOut size={17} /></button></div></div>
+      <div className="dashboard-header"><div><p className="page-eyebrow">Bonjour {user.name.split(" ")[0]}</p><h1>Votre espace créateur</h1><p>Préparez vos produits, publiez votre catalogue et suivez vos ventes.</p></div><div className="dashboard-head-actions"><Link className="button button-dark" href="/studio/nouveau"><Plus size={18} weight="bold" /> Ajouter un produit</Link><button className="icon-button" type="button" onClick={() => void signOut()} aria-label="Se déconnecter"><SignOut size={17} /></button></div></div>
       <nav className="dashboard-tabs" aria-label="Espace créateur"><Link aria-current="page" href="/studio">Produits</Link><Link href={`/createurs/${user.slug}`}>Ma boutique</Link><Link href="/studio/retraits">Revenus et retraits</Link><Link href="/bibliotheque">Ma bibliothèque</Link></nav>
-      <div className="dashboard-notice"><span /> {supabaseConnected ? "Supabase connecté. Les produits publiés sont partagés." : user.isDemo ? "Mode démonstration local. Les changements sont enregistrés dans ce navigateur." : "Compte connecté. Vérifiez la configuration de la base Supabase pour publier."}</div>
+      <div className="dashboard-notice"><span /> {supabaseConnected ? "Votre boutique est connectée. Vos produits publiés sont visibles dans le catalogue." : user.isDemo ? "Mode démonstration local. Les changements sont enregistrés dans ce navigateur." : "Votre compte est connecté. La boutique est temporairement indisponible. Réessayez plus tard."}</div>
       <div className="dashboard-stats">
         <div className="stat-card"><span>Produits publiés</span><strong>{myProducts.filter((item) => item.published).length}</strong></div>
         <div className="stat-card"><span>{process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay" ? "Ventes confirmées" : "Commandes terminées"}</span><strong>{myOrders.length}</strong></div>
@@ -63,8 +64,8 @@ export function DashboardPage() {
             <button className="icon-button delete-button" type="button" onClick={() => void remove(product.id)} aria-label="Supprimer le produit"><Trash size={16} /></button>
           </div>
         </article>
-      ))}</div> : <div className="empty-state"><h2>Votre boutique commence ici</h2><p>Ajoutez une première création pour la rendre visible dans la découverte.</p><Link className="button button-dark" href="/studio/nouveau"><Plus size={17} /> Ajouter un produit</Link></div>}
-      <p className="dashboard-help">{process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay" ? "Les ventes SasPay sont comptabilisées après confirmation. Les retraits sont demandés dans Sellow puis versés manuellement depuis SasPay." : "Les commandes simulées ne déclenchent aucun paiement ni revenu. Activez SasPay après avoir configuré les clés et la migration Supabase."}</p>
+      ))}</div> : <div className="empty-state"><h2>Votre boutique commence ici</h2><p>Préparez votre premier produit. Enregistrez un brouillon ou publiez votre fiche quand elle est prête.</p><Link className="button button-dark" href="/studio/nouveau"><Plus size={17} /> Ajouter un produit</Link></div>}
+      <p className="dashboard-help">{process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay" ? "Vos ventes sont comptabilisées après confirmation du paiement. Demandez vos retraits depuis Sellow ; les versements sont traités manuellement après examen." : "Les commandes de démonstration sont simulées. Elles ne génèrent aucun paiement, revenu ou versement réel."}</p>
     </div>
   );
 }

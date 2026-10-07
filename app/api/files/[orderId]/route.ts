@@ -9,7 +9,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ orde
   if (!authData.user) return NextResponse.json({ error: "Connectez-vous pour télécharger ce fichier." }, { status: 401 });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return NextResponse.json({ error: "Le stockage Supabase n’est pas configuré." }, { status: 503 });
+  if (!url || !serviceKey) return NextResponse.json({ error: "Les téléchargements sont temporairement indisponibles. Réessayez plus tard." }, { status: 503 });
 
   const { orderId } = await params;
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });

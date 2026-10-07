@@ -27,20 +27,20 @@ export function ProductPage() {
 
   if (!ready) return <div className="page-wrap"><div className="loading-card" /></div>;
   if (!product || !product.published) {
-    return <section className="not-found"><div><p className="page-eyebrow">Produit introuvable</p><h1>Cette création n’est plus là.</h1><p>Elle a peut être été dépubliée par son créateur.</p><Link className="button button-dark" href="/">Retour à la découverte <ArrowRight size={16} /></Link></div></section>;
+    return <section className="not-found"><div><p className="page-eyebrow">Produit introuvable</p><h1>Ce produit n’est plus disponible.</h1><p>Le créateur a pu retirer cette fiche du catalogue. Explorez les autres produits disponibles.</p><Link className="button button-dark" href="/">Retour à la découverte <ArrowRight size={16} /></Link></div></section>;
   }
 
   const saved = favorites.includes(product.id);
   const related = products.filter((item) => item.id !== product.id && item.published && item.category === product.category).slice(0, 3);
   const detailText = product.kind === "course"
-    ? `${product.details?.courseLessons?.length ?? product.details?.lessons ?? 8} leçons · ${product.details?.duration ?? "À votre rythme"}`
+    ? `${product.details?.courseLessons?.length ?? product.details?.lessons ?? 0} leçons · ${product.details?.duration ?? "À votre rythme"}`
     : product.kind === "membership"
-      ? `Accès renouvelé chaque ${product.details?.interval ?? "mois"}`
+      ? liveMode ? "Accès mensuel · Renouvellement manuel" : "Accès mensuel simulé"
       : product.kind === "physical"
         ? String(product.details?.shipping ?? "Expédition organisée par le créateur")
         : product.kind === "service"
           ? String(product.details?.fulfillment ?? "Une prestation organisée avec le créateur")
-          : product.fileName ?? "Accès immédiat après l’achat";
+          : product.fileName ?? "Téléchargement après confirmation du paiement";
 
   return (
     <div className="page-wrap">
@@ -59,9 +59,9 @@ export function ProductPage() {
           <p className="detail-subtitle">{product.subtitle}</p>
           {product.compareAtPrice !== undefined && product.compareAtPrice > product.price && <p className="compare-at-price"><span className="sr-only">Prix de référence : </span><s>{formatPrice(product.compareAtPrice, product.currency)}</s></p>}
           <p className="detail-price">{formatPrice(product.price, product.currency)}{product.kind === "membership" && <small> / mois</small>}</p>
-          <div className="demo-note"><ShieldCheck size={17} /><span>{liveMode ? liveProduct ? "Le paiement est traité sur le checkout hébergé SasPay." : "Fiche de présentation : le paiement réel n’est pas ouvert pour cet exemple." : "Checkout de démonstration. Aucun paiement réel ne sera effectué."}</span></div>
+          <div className="demo-note"><ShieldCheck size={17} /><span>{liveMode ? liveProduct ? "Votre achat est associé à votre compte après confirmation du paiement." : "Fiche de présentation : le paiement réel n’est pas ouvert pour cet exemple." : "Achat simulé. Aucun paiement réel ne sera effectué."}</span></div>
           {(!liveMode || liveProduct) && <Link className="button button-dark" href={`/checkout/${product.slug}`}>
-            {product.kind === "membership" ? "Choisir cet abonnement" : product.kind === "service" ? "Demander ce service" : product.price === 0 ? "Obtenir le produit" : "Acheter ce produit"}
+            {product.kind === "membership" ? "Choisir cet abonnement" : product.kind === "service" ? "Commander ce service" : product.price === 0 ? "Obtenir le produit" : "Acheter ce produit"}
             <ArrowRight size={17} />
           </Link>}
           {(product.saveForLaterEnabled !== false || saved) && <button className={`button button-light favorite-wide${saved ? " is-saved" : ""}`} type="button" aria-pressed={saved} onClick={() => toggleFavorite(product.id)}>

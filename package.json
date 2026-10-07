@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "payment:diagnose": "node scripts/saspay-checkout-diagnostic.mjs",
-    "test": "node --test lib/product-files-migration.test.mjs lib/product-files.test.mjs lib/product-file-access.test.mjs lib/order-access.test.mjs lib/content-access.test.mjs lib/payment/accounting.test.mjs lib/payment/saspay-signature.test.mjs lib/payment/saspay-checkout.test.mjs && playwright test",
+    "test": "node --test lib/copy.test.mjs lib/product-files-migration.test.mjs lib/product-files.test.mjs lib/product-file-access.test.mjs lib/order-access.test.mjs lib/content-access.test.mjs lib/payment/accounting.test.mjs lib/payment/saspay-signature.test.mjs lib/payment/saspay-checkout.test.mjs && playwright test",
     "guide:publish": "node scripts/publish-plan-500k.mjs",
     "test:production": "playwright test --config playwright.production.config.ts"
   },

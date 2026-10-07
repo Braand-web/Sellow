@@ -6,7 +6,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ reque
   if (origin && origin !== new URL(request.url).origin) return NextResponse.json({ error: "Origine de la demande non autorisée." }, { status: 403 });
   const adminContext = await getSellowAdminContext();
   if (!adminContext) return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
-  if (!adminContext.admin) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!adminContext.admin) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
   const { requestId } = await context.params;
   let body: { status?: unknown; paymentReference?: unknown; note?: unknown };
   try { body = await request.json() as typeof body; }

@@ -636,7 +636,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? "Le checkout n’a pas abouti.");
+      if (!response.ok) throw new Error(payload.error ?? "Le paiement n’a pas abouti.");
       order = { ...(payload.order as Order), checkoutUrl: payload.checkoutUrl, isRemote: true };
     } else {
       const result = await paymentProvider.createCheckout({ product, buyerEmail, shippingAddress });

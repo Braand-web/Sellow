@@ -12,14 +12,14 @@ import { GlobalNotice } from "@/components/global-notice";
 export const metadata: Metadata = {
   metadataBase: new URL("https://sellow.fun"),
   title: {
-    default: "Sellow — Des idées à partager",
+    default: "Sellow — Découvrez des créations, vendez les vôtres",
     template: "%s — Sellow",
   },
   description:
-    "Découvrez des ressources, des cours et des objets imaginés par des créateurs indépendants.",
+    "Achetez des ressources, des cours et des créations indépendantes, ou ouvrez votre boutique pour vendre vos produits et services sur Sellow.",
   openGraph: {
-    title: "Sellow — Des idées à partager",
-    description: "Des créations indépendantes, à découvrir et à partager.",
+    title: "Sellow — Découvrez des créations, vendez les vôtres",
+    description: "Des ressources pour vos projets. Une boutique pour vos créations.",
     type: "website",
     images: ["/og-image.svg"],
   },

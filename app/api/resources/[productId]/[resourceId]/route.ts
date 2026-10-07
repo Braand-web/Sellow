@@ -11,7 +11,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   const auth = await getSupabaseServerClient();
   const { data: authData } = auth ? await auth.auth.getUser() : { data: { user: null } };
   const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!admin) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
   const { data: product } = await admin.from("products").select("product_kind, published").eq("id", productId).maybeSingle();
   if (!product) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
   const { data } = await admin.from("product_contents").select("content").eq("product_id", productId).maybeSingle();

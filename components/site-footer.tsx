@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
+import { paymentCopy } from "@/lib/copy.mjs";
 import { BrandMark } from "@/components/brand-mark";
 
 export function SiteFooter() {
@@ -12,7 +13,7 @@ export function SiteFooter() {
             <BrandMark />
             <span>Sellow</span>
           </Link>
-          <p>Des idées faites par des gens qui les partagent.</p>
+          <p>Des ressources pour vos projets. Une boutique pour vos créations.</p>
         </div>
         <div className="footer-links">
           <div><span className="footer-heading">Explorer</span><Link href="/#decouvrir">Produits</Link><Link href="/#categories">Catégories</Link></div>
@@ -21,8 +22,8 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="footer-bottom">
-        <span>© 2026 Sellow. Fait pour les idées indépendantes.</span>
-        <span className="footer-demo"><i /> {liveMode ? "Paiements traités par SasPay" : "Démonstration sans paiement réel"}</span>
+        <span>© 2026 Sellow. Pour apprendre, créer et vendre.</span>
+        <span className="footer-demo"><i /> {liveMode ? "Achats et ventes sur Sellow" : paymentCopy.demo}</span>
         <Link href="/#haut">Retour en haut <ArrowUpRight size={14} /></Link>
       </div>
     </footer>

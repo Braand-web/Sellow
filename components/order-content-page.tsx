@@ -1,6 +1,8 @@
 "use client";
 
+import { publicErrorMessage } from "@/lib/copy.mjs";
 import Link from "next/link";
+import { membershipCopy } from "@/lib/copy.mjs";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowLeft, BookOpenText, CheckCircle, Package, PlayCircle } from "@phosphor-icons/react";
@@ -36,7 +38,7 @@ export function OrderContentPage() {
     void loadProductContent(product).then((content) => {
       if (!cancelled) setMemberContent(content);
     }).catch((loadError) => {
-      if (!cancelled) setContentError(loadError instanceof Error ? loadError.message : "Le contenu membre n’a pas pu être chargé.");
+      if (!cancelled) setContentError(publicErrorMessage(loadError, "Le contenu membre n’a pas pu être chargé."));
     });
     return () => { cancelled = true; };
   }, [loadProductContent, order, product, membershipActive]);
@@ -45,7 +47,7 @@ export function OrderContentPage() {
     if (!order) return;
     setBusy(true); setError(null);
     try { await cancelSubscription(order); }
-    catch (cancelError) { setError(cancelError instanceof Error ? cancelError.message : "L’annulation n’a pas abouti."); }
+    catch (cancelError) { setError(publicErrorMessage(cancelError, "L’annulation n’a pas abouti.")); }
     finally { setBusy(false); }
   }
 
@@ -67,7 +69,7 @@ export function OrderContentPage() {
   }
 
   if (!ready) return <div className="page-wrap"><div className="loading-card" /></div>;
-  if (!order || !isBuyer) return <div className="page-wrap"><div className="empty-state"><h2>Commande introuvable sur cet appareil</h2><p>Ouvrez la bibliothèque du compte qui a réalisé l’achat.</p><Link className="button button-dark" href="/bibliotheque">Ma bibliothèque <ArrowLeft size={16} /></Link></div></div>;
+  if (!order || !isBuyer) return <div className="page-wrap"><div className="empty-state"><h2>Cette commande est introuvable</h2><p>Ouvrez la bibliothèque du compte qui a réalisé l’achat.</p><Link className="button button-dark" href="/bibliotheque">Ma bibliothèque <ArrowLeft size={16} /></Link></div></div>;
 
   const isDemo = order.status === "paid_demo" || order.status === "canceled_demo";
   return (
@@ -79,7 +81,7 @@ export function OrderContentPage() {
         {isPaid && <span className="content-confirmed"><CheckCircle size={17} weight="fill" /> Accès {order.productKind === "membership" && !membershipActive ? "terminé" : "actif"}</span>}
       </div>
 
-      {order.productKind === "course" && <section className="content-panel"><p className="page-eyebrow">Votre cours</p><h2>Leçons à suivre à votre rythme</h2><p className="content-copy">Votre progression sera enregistrée le temps de votre apprentissage.</p><Link className="button button-dark" href={`/apprendre/${encodeURIComponent(order.productSlug)}`}>Ouvrir le cours <PlayCircle size={17} /></Link></section>}
+      {order.productKind === "course" && <section className="content-panel"><p className="page-eyebrow">Votre cours</p><h2>Leçons à suivre à votre rythme</h2><p className="content-copy">Reprenez votre dernière leçon et retrouvez votre progression à chaque visite.</p><Link className="button button-dark" href={`/apprendre/${encodeURIComponent(order.productSlug)}`}>Suivre le cours <PlayCircle size={17} /></Link></section>}
 
       {order.productKind === "membership" && <section className="content-panel">
         <p className="page-eyebrow">Votre espace membre</p>
@@ -92,7 +94,7 @@ export function OrderContentPage() {
             {memberContent.membershipCourseIds.length > 0 && <div className="included-course-list"><h3>Cours inclus</h3>{memberContent.membershipCourseIds.map((courseId) => products.find((item) => item.id === courseId)).filter((course) => course?.kind === "course").map((course) => <Link className="included-course-link" key={course!.id} href={`/apprendre/${encodeURIComponent(course!.slug)}`}><PlayCircle size={17} /><span>{course!.title}</span></Link>)}</div>}
           </> : <div className="loading-card" />}
           {!isDemo && !order.membershipRenewalCancelledAt && <button className="button button-light cancel-membership" type="button" disabled={busy} onClick={() => void cancel()}>{busy ? "Enregistrement…" : "Arrêter le renouvellement"}</button>}
-          {order.membershipRenewalCancelledAt && <p className="form-success">Aucun nouveau mois ne sera facturé. Votre accès reste disponible jusqu’à son échéance.</p>}
+          {order.membershipRenewalCancelledAt && <p className="form-success">{membershipCopy.cancellation}</p>}
           {isDemo && <button className="button button-light cancel-membership" type="button" disabled={busy} onClick={() => void cancel()}>{busy ? "Annulation…" : "Annuler l’abonnement simulé"}</button>}
           {error && <p className="form-error" role="alert">{error}</p>}
         </> : <><p className="content-copy">{order.membershipExpiresAt ? `Votre accès a expiré le ${new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date(order.membershipExpiresAt))}.` : "Un paiement mensuel est nécessaire pour ouvrir les publications et les cours inclus."}</p>{product && <Link className="button button-dark" href={`/checkout/${encodeURIComponent(product.slug)}`}>Renouveler pour un mois</Link>}</>}

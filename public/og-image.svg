@@ -12,7 +12,7 @@
   <circle cx="106" cy="108" r="1.8" fill="#22211f"/>
   <circle cx="117" cy="108" r="1.8" fill="#22211f"/>
   <text x="146" y="111" fill="#25231f" font-family="Manrope, sans-serif" font-size="30" font-weight="700">Sellow</text>
-  <text x="88" y="290" fill="#22211f" font-family="Manrope, sans-serif" font-size="64" font-weight="600">Des idées faites</text>
-  <text x="88" y="370" fill="#22211f" font-family="Manrope, sans-serif" font-size="64" font-weight="600">par des indépendants.</text>
-  <text x="90" y="435" fill="#77736b" font-family="Manrope, sans-serif" font-size="25">Ressources, cours et objets à découvrir.</text>
+  <text x="88" y="290" fill="#22211f" font-family="Manrope, sans-serif" font-size="56" font-weight="600">Découvrez des créations.</text>
+  <text x="88" y="370" fill="#22211f" font-family="Manrope, sans-serif" font-size="56" font-weight="600">Vendez les vôtres.</text>
+  <text x="90" y="435" fill="#77736b" font-family="Manrope, sans-serif" font-size="25">Apprenez, créez et vendez avec Sellow.</text>
 </svg>

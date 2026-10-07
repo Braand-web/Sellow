@@ -37,7 +37,7 @@ export function SiteHeader() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Rechercher un produit"
           />
-          <kbd>⌘ K</kbd>
+
         </form>
         <div className="header-actions">
           {user ? (
@@ -52,9 +52,9 @@ export function SiteHeader() {
               Se connecter
             </Link>
           )}
-          <Link className="button button-dark button-small header-cta" href={user ? "/studio/nouveau" : "/inscription"}>
+          <Link className="button button-dark button-small header-cta" href={user ? "/studio/nouveau" : "/inscription"} aria-label={user ? "Ajouter un produit" : "Créer ma boutique"}>
             <Storefront size={16} weight="bold" />
-            <span>Commencer à vendre</span>
+            <span>{user ? "Ajouter un produit" : "Créer ma boutique"}</span>
             <ArrowRight className="button-arrow" size={15} />
           </Link>
         </div>

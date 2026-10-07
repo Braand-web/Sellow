@@ -1,5 +1,6 @@
 "use client";
 
+import { publicErrorMessage } from "@/lib/copy.mjs";
 import Link from "next/link";
 import { ArrowLeft } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -63,7 +64,7 @@ export function EditProductPage() {
     if (product.kind === "course" || product.kind === "membership") {
       void loadProductContent(product)
         .then((nextContent) => { setContent(nextContent); setLoadedContentId(product.id); })
-        .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Le contenu n’a pas pu être chargé."));
+        .catch((loadError) => setError(publicErrorMessage(loadError, "Le contenu n’a pas pu être chargé.")));
     }
     return () => { cancelled = true; };
   }, [loadProductContent, loadProductFiles, product]);
@@ -99,7 +100,7 @@ export function EditProductPage() {
       });
       router.push("/studio");
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Les modifications n’ont pas pu être enregistrées.");
+      setError(publicErrorMessage(saveError, "Les modifications n’ont pas pu être enregistrées."));
     } finally {
       setBusy(false);
     }
@@ -111,10 +112,10 @@ export function EditProductPage() {
   return (
     <div className="page-wrap new-product-wrap">
       <nav className="breadcrumbs" aria-label="Fil d’Ariane"><Link href="/studio"><ArrowLeft size={14} /> Tableau de bord</Link><span>›</span><span>Modifier le produit</span></nav>
-      <div className="page-title-row"><div><p className="page-eyebrow">Fiche créateur</p><h1 className="page-title">Modifier « {product.title} »</h1><p className="page-lead">Le type reste {product.kind === "download" ? "un fichier numérique" : product.kind === "course" ? "un cours" : product.kind === "membership" ? "un abonnement" : product.kind === "physical" ? "un objet physique" : "un service"}.</p></div></div>
+      <div className="page-title-row"><div><p className="page-eyebrow">Votre produit</p><h1 className="page-title">Modifier « {product.title} »</h1><p className="page-lead">Le type reste {product.kind === "download" ? "un fichier numérique" : product.kind === "course" ? "un cours" : product.kind === "membership" ? "un abonnement" : product.kind === "physical" ? "un objet physique" : "un service"}.</p></div></div>
       <form className="new-product-form" onSubmit={submit}>
         <section className="new-product-main">
-          <div className="form-panel"><div className="form-section-heading"><span>01</span><div><h2>Informations du produit</h2><p>Le type de produit ne peut pas être modifié après création.</p></div></div><div className="form-stack">
+          <div className="form-panel"><div className="form-section-heading"><span>01</span><div><h2>Informations du produit</h2><p>Mettez à jour votre présentation et vos contenus. Le format choisi à la création reste fixe.</p></div></div><div className="form-stack">
             <div className="field-group"><label htmlFor="edit-title">Nom du produit</label><input className="field-input" id="edit-title" required minLength={3} maxLength={70} value={title} onChange={(event) => setTitle(event.target.value)} /></div>
             <div className="field-group"><label htmlFor="edit-subtitle">Phrase de présentation</label><input className="field-input" id="edit-subtitle" required maxLength={110} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} /></div>
             <RichTextEditor id="edit-description" label="Description" required value={descriptionContent} onChange={setDescriptionContent} files={descriptionFiles} onFilesChange={setDescriptionFiles} productId={product.id} localContent={!supabaseConfigured || user.isDemo} />
@@ -126,7 +127,7 @@ export function EditProductPage() {
           <div className="form-panel"><h2>Options de vente</h2><ProductSaleOptions price={price} compareAtPrice={compareAtPrice} saveForLaterEnabled={saveForLaterEnabled} currency={currency} onCompareAtPriceChange={setCompareAtPrice} onSaveForLaterChange={setSaveForLaterEnabled} /></div>
           {(product.kind === "course" || product.kind === "membership") && <ProductContentEditor kind={product.kind} value={content} products={products} creatorId={user.id} productId={product.id} localContent={!supabaseConfigured || user.isDemo} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}
         </section>
-        <aside className="new-product-aside"><div className="demo-note"><span /> Les changements sont enregistrés avec votre produit.</div>{!contentReady && <p className="field-help" role="status">Chargement du contenu privé…</p>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-dark publish-button" type="submit" disabled={busy || !contentReady}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button><Link className="text-link cancel-link" href="/studio">Annuler</Link></aside>
+        <aside className="new-product-aside"><div className="demo-note"><span /> Enregistrez vos modifications pour mettre à jour la fiche et les contenus de votre produit.</div>{!contentReady && <p className="field-help" role="status">Chargement du contenu privé…</p>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-dark publish-button" type="submit" disabled={busy || !contentReady}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button><Link className="text-link cancel-link" href="/studio">Annuler</Link></aside>
       </form>
     </div>
   );

@@ -5,7 +5,7 @@ import { getSellowAdminContext } from "@/lib/supabase/admin-auth";
 export async function GET() {
   const context = await getSellowAdminContext();
   if (!context) return NextResponse.json({ error: "Accès administrateur requis." }, { status: 403 });
-  if (!context.admin) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!context.admin) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
   const { data, error } = await context.admin.from("payout_requests")
     .select("*").order("created_at", { ascending: false }).limit(100);
   if (error) return NextResponse.json({ error: "La file de retraits n’a pas pu être chargée." }, { status: 500 });

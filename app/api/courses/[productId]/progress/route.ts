@@ -11,7 +11,7 @@ async function verify(requestId: string) {
   const { data: authData } = auth ? await auth.auth.getUser() : { data: { user: null } };
   if (!authData.user) return { response: NextResponse.json({ error: "Connectez-vous pour suivre ce cours." }, { status: 401 }) };
   const admin = getSupabaseAdmin();
-  if (!admin) return { response: NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 }) };
+  if (!admin) return { response: NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 }) };
   const access = await canAccessProductContent(admin, requestId, authData.user.id);
   if (!access.allowed || access.product?.product_kind !== "course") return { response: NextResponse.json({ error: "Un achat ou un abonnement actif est nécessaire." }, { status: 403 }) };
   return { admin, userId: authData.user.id };

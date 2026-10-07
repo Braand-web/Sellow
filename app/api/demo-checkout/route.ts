@@ -9,16 +9,16 @@ const demoEnabled = process.env.DEMO_CHECKOUT_ENABLED === "true" || process.env.
 
 export async function POST(request: Request) {
   if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Le checkout de démonstration est désactivé en production." }, { status: 410 });
+    return NextResponse.json({ error: "Le paiement de démonstration est désactivé en production." }, { status: 410 });
   }
   if (!demoEnabled) {
-    return NextResponse.json({ error: "Le checkout de démonstration est désactivé." }, { status: 403 });
+    return NextResponse.json({ error: "Le paiement de démonstration est désactivé." }, { status: 403 });
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
-    return NextResponse.json({ error: "Configurez Supabase côté serveur pour acheter ce produit." }, { status: 503 });
+    return NextResponse.json({ error: "L’achat de démonstration est temporairement indisponible." }, { status: 503 });
   }
 
   const authClient = await getSupabaseServerClient();
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "La demande de checkout est invalide." }, { status: 400 });
+    return NextResponse.json({ error: "La demande de paiement est invalide." }, { status: 400 });
   }
 
   const slug = body.slug?.trim();
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       shippingAddress: body.shippingAddress?.trim(),
     });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Checkout indisponible." }, { status: 400 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Paiement indisponible." }, { status: 400 });
   }
 
   const orderId = randomUUID();
