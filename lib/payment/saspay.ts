@@ -1,4 +1,5 @@
 import "server-only";
+import { unwrapSasPayResponse } from "@/lib/payment/saspay-checkout.mjs";
 
 export const SASPAY_API_BASE = "https://api.saspay.me/api/v1";
 
@@ -6,7 +7,7 @@ export type SasPayCheckoutSession = {
   id: string;
   checkout_url: string;
   status: string;
-  fee_charge_mode?: string;
+  fee_charge_mode?: unknown;
 };
 
 export type SasPayPayment = {
@@ -51,10 +52,10 @@ export class SasPayClient {
     });
     const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     if (!response.ok) {
-      const providerMessage = typeof payload.message === "string" ? payload.message : "SasPay n’a pas accepté la demande.";
+      const providerMessage = typeof payload?.message === "string" ? payload.message : "SasPay n’a pas accepté la demande.";
       throw new Error(providerMessage);
     }
-    return payload as T;
+    return unwrapSasPayResponse(payload) as T;
   }
 
   createCheckout(input: {
@@ -84,6 +85,10 @@ export class SasPayClient {
 
   getCheckoutSessionStatus(sessionId: string) {
     return this.request<SasPaySessionStatus>(`/checkout-sessions/${encodeURIComponent(sessionId)}/status/`);
+  }
+
+  getCheckoutSession(sessionId: string) {
+    return this.request<SasPayCheckoutSession>(`/checkout-sessions/${encodeURIComponent(sessionId)}/`);
   }
 
   cancelCheckoutSession(sessionId: string) {

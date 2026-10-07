@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { currencyFractionDigits } from "@/lib/payment/accounting.mjs";
 import { getUsdRate } from "@/lib/payment/fx";
 import { SasPayPaymentProvider } from "@/lib/payment/server-provider";
+import { checkSasPayCheckout, CHECKOUT_UNAVAILABLE_MESSAGE } from "@/lib/payment/saspay-checkout.mjs";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Product } from "@/lib/types";
@@ -131,15 +132,20 @@ export async function POST(request: Request) {
 
     const orderRow = (Array.isArray(prepared) ? prepared[0] : prepared) as Record<string, unknown> | null;
     if (!orderRow) return NextResponse.json({ error: "La commande n’a pas pu être préparée." }, { status: 500 });
-    const existingCheckoutUrl = typeof orderRow.provider_checkout_url === "string" ? orderRow.provider_checkout_url : undefined;
-    if (existingCheckoutUrl || orderRow.status === "paid") {
-      return NextResponse.json({ order: publicOrder(orderRow, existingCheckoutUrl), checkoutUrl: existingCheckoutUrl });
+    if (orderRow.status === "paid") {
+      return NextResponse.json({ order: publicOrder(orderRow) });
     }
 
     try {
       const client = new SasPayPaymentProvider();
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
-      const session = await client.createCheckout({
+      const existingSessionId = typeof orderRow.provider_session_id === "string" && orderRow.provider_session_id.trim()
+        ? orderRow.provider_session_id : undefined;
+      const session = existingSessionId ? {
+        id: existingSessionId,
+        checkout_url: orderRow.provider_checkout_url,
+        status: "PENDING",
+      } : await client.createCheckout({
         orderId: String(orderRow.id),
         marker: String(orderRow.provider_marker),
         amount: (Number(orderRow.amount) / 100).toFixed(2),
@@ -149,25 +155,43 @@ export async function POST(request: Request) {
         productTitle: product.title,
         returnUrl: `${baseUrl}/api/saspay/return?order=${encodeURIComponent(String(orderRow.id))}`,
       });
-      if (session.fee_charge_mode?.toUpperCase() !== "DEDUCTED") {
-        await client.cancelCheckoutSession(session.id).catch(() => undefined);
-        await admin.from("orders").update({ provider_status: "FEE_MODE_MISMATCH", status: "failed" }).eq("id", orderRow.id).eq("status", "pending");
-        return NextResponse.json({ error: "SasPay n’a pas confirmé le mode de frais prévu. Le créateur doit régler les frais du compte avant de relancer le paiement." }, { status: 503 });
+      const checked = await checkSasPayCheckout(client, session, { refresh: Boolean(existingSessionId) });
+      let cancellation = "not_requested";
+      if (checked.outcome === "FEE_MODE_MISMATCH" && checked.sessionId && checked.providerStatus === "PENDING") {
+        try {
+          await client.cancelCheckoutSession(checked.sessionId);
+          cancellation = "confirmed";
+        } catch {
+          cancellation = "request_failed";
+        }
       }
-      if (!session.id || !session.checkout_url || !session.checkout_url.startsWith("https://")) {
-        throw new Error("SasPay n’a pas renvoyé de lien de paiement valide.");
-      }
-      const { error: saveSessionError } = await admin.from("orders").update({
-        provider_session_id: session.id,
-        provider_checkout_url: session.checkout_url,
-        provider_status: session.status,
-        fee_charge_mode: session.fee_charge_mode,
-      }).eq("id", orderRow.id).eq("status", "pending");
+      const { data: savedSession, error: saveSessionError } = await admin.from("orders").update({
+        provider_session_id: checked.sessionId,
+        provider_checkout_url: checked.storedCheckoutUrl,
+        provider_status: checked.outcome === "CONFIRMED" ? checked.providerStatus : checked.outcome,
+        fee_charge_mode: checked.feeMode,
+        ...(cancellation === "confirmed" || ["EXPIRED", "CANCELLED"].includes(checked.providerStatus ?? "") ? { status: "canceled" } : {}),
+      }).eq("id", orderRow.id).eq("status", "pending").select("id").maybeSingle();
       if (saveSessionError) throw new Error("Le lien de paiement n’a pas pu être enregistré.");
-      return NextResponse.json({ order: publicOrder(orderRow), checkoutUrl: session.checkout_url });
-    } catch (error) {
-      await admin.from("orders").update({ status: "failed", provider_status: "SESSION_CREATION_FAILED" }).eq("id", orderRow.id).eq("status", "pending");
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Le checkout SasPay est indisponible." }, { status: 502 });
+      if (!savedSession) {
+        const { data: currentOrder } = await admin.from("orders").select("*")
+          .eq("id", orderRow.id).eq("buyer_id", buyer.id).maybeSingle();
+        if (currentOrder?.status === "paid") return NextResponse.json({ order: publicOrder(currentOrder) });
+        throw new Error("La commande n’est plus en attente de paiement.");
+      }
+      console.info("saspay.checkout_check", {
+        orderId: orderRow.id, outcome: checked.outcome, providerStatus: checked.providerStatus,
+        cancellation, ...checked.diagnostic,
+      });
+      if (!checked.checkoutUrl) {
+        return NextResponse.json({ error: CHECKOUT_UNAVAILABLE_MESSAGE }, { status: 503 });
+      }
+      return NextResponse.json({ order: publicOrder(orderRow), checkoutUrl: checked.checkoutUrl });
+    } catch {
+      // Keep an existing session for a verified retry rather than losing its reference.
+      await admin.from("orders").update({ provider_status: "SESSION_REQUEST_FAILED" }).eq("id", orderRow.id).eq("status", "pending");
+      console.warn("saspay.checkout_request_failed", { orderId: orderRow.id });
+      return NextResponse.json({ error: CHECKOUT_UNAVAILABLE_MESSAGE }, { status: 503 });
     }
   }
 

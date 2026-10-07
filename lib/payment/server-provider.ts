@@ -16,6 +16,7 @@ export interface HostedPaymentProvider {
   createCheckout(input: HostedCheckoutRequest): Promise<SasPayCheckoutSession>;
   verifyPayment(paymentId: string): Promise<SasPayPayment>;
   getCheckoutSessionStatus(sessionId: string): ReturnType<SasPayClient["getCheckoutSessionStatus"]>;
+  getCheckoutSession(sessionId: string): ReturnType<SasPayClient["getCheckoutSession"]>;
   cancelCheckoutSession(sessionId: string): ReturnType<SasPayClient["cancelCheckoutSession"]>;
 }
 
@@ -36,6 +37,10 @@ export class SasPayPaymentProvider implements HostedPaymentProvider {
 
   getCheckoutSessionStatus(sessionId: string) {
     return this.client.getCheckoutSessionStatus(sessionId);
+  }
+
+  getCheckoutSession(sessionId: string) {
+    return this.client.getCheckoutSession(sessionId);
   }
 
   cancelCheckoutSession(sessionId: string) {
