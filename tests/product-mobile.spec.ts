@@ -48,6 +48,8 @@ for (const width of [320, 390, 780]) {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(download.title);
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(page.locator(".detail-cover img")).toBeVisible();
+    await expect(page.locator(".detail-cover img")).toHaveAttribute("loading", "eager");
+    await expect(page.locator(".detail-cover img")).toHaveAttribute("fetchpriority", "high");
     await expect.poll(() => page.locator(".detail-cover img").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
     const heading = await page.locator(".detail-heading").boundingBox();
     const cover = await page.locator(".detail-cover").boundingBox();

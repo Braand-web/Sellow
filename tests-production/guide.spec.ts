@@ -11,6 +11,8 @@ for (const [name, width, height] of [["ordinateur",1440,1000],["mobile",390,844]
     await expect(page.locator(".detail-content .compare-at-price")).toContainText(/25\s*000 FCFA/);
     await expect(page.getByRole("button",{name:"Enregistrer pour plus tard"})).toBeVisible();
     await expect(page.locator(".detail-description img")).toHaveCount(3);
+    await expect(page.locator(".detail-cover img")).toHaveAttribute("loading","eager");
+    await expect.poll(() => page.locator(".detail-cover img").evaluate((image:HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
     if (width <= 780) {
       const heading = await page.locator(".detail-heading").boundingBox();
       const cover = await page.locator(".detail-cover").boundingBox();

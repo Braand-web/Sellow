@@ -78,7 +78,7 @@ export function ProductPage() {
           </div>
         </aside>
         <div className="detail-main">
-          <div className="detail-cover"><ProductCover product={product} /></div>
+          <div className="detail-cover"><ProductCover product={product} eager /></div>
           <div className="detail-body">
             <RichTextContent className="detail-description" value={product.descriptionContent} fallbackText={product.description} productId={product.id} localContent={!supabaseConfigured || user?.isDemo || !/^[0-9a-f-]{36}$/i.test(product.id)} />
             <div className="detail-info"><span>{kindLabels[product.kind]}</span><span>{detailText}</span>{product.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>
