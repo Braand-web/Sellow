@@ -277,7 +277,7 @@ export function RichTextEditor({
       {assistantOpen && <section className="rich-assistant-panel" aria-label="Assistant IA">
         <div className="rich-assistant-panel-heading"><div><MagicWand size={17} /><strong>Assistant IA</strong></div><button className="icon-button" type="button" aria-label="Fermer l’assistant IA" onClick={() => setAssistantOpen(false)}><X size={17} /></button></div>
         <div className="rich-assistant-actions"><button className="button button-light button-small" type="button" disabled>Rédiger</button><button className="button button-light button-small" type="button" disabled>Améliorer</button></div>
-        <p>Un fournisseur d’IA devra être configuré pour activer la rédaction et l’amélioration de ce texte.</p>
+        <p>L’Assistant IA n’est pas encore disponible. Vous pouvez rédiger et mettre en forme votre texte avec l’éditeur.</p>
       </section>}
     </div>
   );

@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (!authData.user) return NextResponse.json({ error: "Connectez-vous pour gérer cet abonnement." }, { status: 401 });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!url || !serviceKey) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
 
   let body: { orderId?: string };
   try { body = await request.json(); }

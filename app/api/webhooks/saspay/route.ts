@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   const providerTransactionId = String(payload.data?.id ?? "");
   if (!providerTransactionId) return NextResponse.json({ error: "Identifiant de transaction manquant." }, { status: 400 });
   const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!admin) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
 
   try {
     const payment = await new SasPayPaymentProvider().verifyPayment(providerTransactionId);
@@ -46,6 +46,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ received: true, duplicate: verified.duplicate });
   } catch {
-    return NextResponse.json({ error: "La transaction SasPay n’a pas pu être vérifiée." }, { status: 503 });
+    return NextResponse.json({ error: "La transaction n’a pas pu être vérifiée." }, { status: 503 });
   }
 }

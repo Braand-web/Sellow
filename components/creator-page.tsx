@@ -26,7 +26,7 @@ export function CreatorPage() {
 
 
   if (!ready) return <div className="page-wrap"><div className="loading-card" /></div>;
-  if (!creator) return <section className="not-found"><div><p className="page-eyebrow">Boutique introuvable</p><h1>Cette page créateur n’existe pas.</h1><Link className="button button-dark" href="/">Retour à la découverte <ArrowRight size={16} /></Link></div></section>;
+  if (!creator) return <section className="not-found"><div><p className="page-eyebrow">Boutique introuvable</p><h1>Cette boutique est introuvable.</h1><Link className="button button-dark" href="/">Retour à la découverte <ArrowRight size={16} /></Link></div></section>;
 
   return (
     <div className="page-wrap">
@@ -40,7 +40,7 @@ export function CreatorPage() {
       </section>
       <section className="creator-products">
         <div className="section-heading"><div><p className="page-eyebrow">La boutique</p><h2>Les créations de {creator.name.split(" ")[0]}</h2><p>{creatorProducts.length} produit{creatorProducts.length > 1 ? "s" : ""} disponible{creatorProducts.length > 1 ? "s" : ""}</p></div></div>
-        {creatorProducts.length ? <div className="product-grid">{creatorProducts.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <div className="empty-state"><h2>La boutique prend forme</h2><p>Les nouvelles créations apparaîtront ici dès leur publication.</p></div>}
+        {creatorProducts.length ? <div className="product-grid">{creatorProducts.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <div className="empty-state"><h2>Aucun produit publié pour le moment</h2><p>Les produits de ce créateur apparaîtront ici dès leur publication.</p></div>}
       </section>
     </div>
   );

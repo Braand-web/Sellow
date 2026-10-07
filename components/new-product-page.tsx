@@ -1,5 +1,6 @@
 "use client";
 
+import { publicErrorMessage } from "@/lib/copy.mjs";
 import Link from "next/link";
 import Image from "next/image";
 import { FormEvent, useEffect, useState } from "react";
@@ -91,7 +92,7 @@ export function NewProductPage() {
       if (publishOnCreate) await togglePublished(created.id, created);
       router.push(`/studio?created=${encodeURIComponent(created.slug)}`);
     } catch (creationError) {
-      setError(creationError instanceof Error ? creationError.message : "Le produit n’a pas pu être enregistré.");
+      setError(publicErrorMessage(creationError, "Le produit n’a pas pu être enregistré."));
     } finally {
       setBusy(false);
     }
@@ -108,7 +109,7 @@ export function NewProductPage() {
       setCoverImage(optimized);
       setCoverImageName(selected.name);
     } catch (imageError) {
-      setCoverImageError(imageError instanceof Error ? imageError.message : "L’image n’a pas pu être chargée.");
+      setCoverImageError(publicErrorMessage(imageError, "L’image n’a pas pu être chargée."));
     } finally {
       setCoverImageBusy(false);
     }
@@ -119,22 +120,22 @@ export function NewProductPage() {
   return (
     <div className="page-wrap new-product-wrap">
       <nav className="breadcrumbs" aria-label="Fil d’Ariane"><Link href="/studio"><ArrowLeft size={14} /> Tableau de bord</Link><span>›</span><span>Nouveau produit</span></nav>
-      <div className="page-title-row"><div><p className="page-eyebrow">Votre prochaine création</p><h1 className="page-title">Créer un produit</h1><p className="page-lead">Présentez ce que vous faites et choisissez comment le partager.</p></div></div>
-      {user.isDemo && <div className="dashboard-notice"><span /> Mode local : l’image est enregistrée avec la fiche dans ce navigateur. Le fichier remis au client ne sera pas téléversé vers un stockage privé tant que Supabase n’est pas configuré.</div>}
+      <div className="page-title-row"><div><p className="page-eyebrow">Votre prochaine création</p><h1 className="page-title">Créer un produit</h1><p className="page-lead">Présentez votre offre, ajoutez vos contenus et choisissez un prix. Publiez quand votre fiche est prête.</p></div></div>
+      {user.isDemo && <div className="dashboard-notice"><span /> Démonstration locale : la fiche et son image restent dans ce navigateur. Aucun fichier n’est envoyé vers un stockage distant.</div>}
       <form className="new-product-form" onSubmit={submit}>
         <section className="new-product-main">
-          <div className="form-panel"><div className="form-section-heading"><span>01</span><div><h2>Quel type de création ?</h2><p>Le type ne pourra pas être modifié après création.</p></div></div>
+          <div className="form-panel"><div className="form-section-heading"><span>01</span><div><h2>Que souhaitez-vous vendre ?</h2><p>Le type ne pourra pas être modifié après création.</p></div></div>
             <div className="type-picker">{productKinds.map((productKind) => { const Icon = typeIcons[productKind]; return <button className="type-option" type="button" key={productKind} aria-pressed={kind === productKind} onClick={() => setKind(productKind)}><Icon size={21} /><span><strong>{kindLabels[productKind]}</strong><span>{descriptions[productKind]}</span></span></button>; })}</div>
           </div>
-          <div className="form-panel"><div className="form-section-heading"><span>02</span><div><h2>Présentez votre produit</h2><p>Donnez envie aux bonnes personnes de le découvrir.</p></div></div>
+          <div className="form-panel"><div className="form-section-heading"><span>02</span><div><h2>Présentez votre produit</h2><p>Expliquez ce que votre client recevra et à qui votre produit s’adresse.</p></div></div>
             <div className="form-stack">
               <div className="field-group"><label htmlFor="product-title">Nom du produit</label><input className="field-input" id="product-title" required minLength={3} maxLength={70} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Exemple : Le carnet des petites idées" /></div>
               <div className="field-group"><label htmlFor="product-subtitle">Phrase de présentation</label><input className="field-input" id="product-subtitle" required maxLength={110} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} placeholder="Une phrase courte et précise" /></div>
               <RichTextEditor id="product-description" label="Description" required value={descriptionContent} onChange={setDescriptionContent} placeholder="Que recevra votre client ? À qui cette création peut-elle servir ?" files={descriptionFiles} onFilesChange={setDescriptionFiles} localContent={!supabaseConfigured || user.isDemo} />
               <div className="field-group"><label htmlFor="product-cover-image">Image de couverture</label><label className="file-drop" htmlFor="product-cover-image"><input id="product-cover-image" type="file" accept="image/jpeg,image/png,image/webp" aria-invalid={Boolean(coverImageError)} aria-describedby="cover-image-help" onChange={(event) => void selectCoverImage(event.currentTarget)} /><Camera size={22} /><strong>{coverImageBusy ? "Optimisation de l’image…" : coverImageName || "Choisir une image"}</strong><span id="cover-image-help">JPG, PNG ou WebP. Image compressée automatiquement, 12 Mo maximum.</span></label>{coverImage && <button className="text-link" type="button" onClick={() => { setCoverImage(null); setCoverImageName(""); }}>Retirer l’image</button>}{coverImageError && <p className="form-error" role="alert">{coverImageError}</p>}</div>
               {kind === "download" && <div className="field-group"><label htmlFor="product-file">Fichier à remettre</label><label className="file-drop" htmlFor="product-file"><input id="product-file" type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><DownloadSimple size={22} /><strong>{file?.name ?? "Choisir un fichier"}</strong><span>{file ? `${(file.size / 1024 / 1024).toFixed(2)} Mo` : "Fichier privé, remis après l’achat"}</span></label></div>}
-              {kind === "course" && <div className="course-outline"><BookOpenText size={20} /><div><strong>Apprentissage à son rythme</strong><p>Créez les modules, leçons et vidéos plus bas.</p></div><span>À préparer</span></div>}
-              {kind === "membership" && <div className="course-outline"><Sparkle size={20} /><div><strong>Accès mensuel</strong><p>{liveMode ? "Le client paie le mois sur SasPay; les renouvellements sont manuels." : "Le checkout de démonstration simulera un abonnement mensuel."}</p></div><span>Mensuel</span></div>}
+              {kind === "course" && <div className="course-outline"><BookOpenText size={20} /><div><strong>Un cours à suivre à son rythme</strong><p>Organisez vos modules et ajoutez les leçons, vidéos et ressources du cours.</p></div><span>À préparer</span></div>}
+              {kind === "membership" && <div className="course-outline"><Sparkle size={20} /><div><strong>Accès mensuel</strong><p>{liveMode ? "Votre client paie un mois d’accès à la fois. Le renouvellement est manuel, sans prélèvement automatique." : "L’achat de démonstration ouvre un abonnement simulé, sans prélèvement réel."}</p></div><span>Mensuel</span></div>}
               {kind === "physical" && <div className="course-outline"><Package size={20} /><div><strong>Expédition manuelle</strong><p>{liveMode ? "Vous organisez l’expédition après confirmation de la commande." : "Vous recevrez l’adresse du client avec chaque commande de démonstration."}</p></div><span>Par vous</span></div>}
               {kind === "service" && <div className="course-outline"><Camera size={20} /><div><strong>Prestation à organiser</strong><p>Le client peut ajouter un message au moment de la commande.</p></div><span>Par vous</span></div>}
               <div className="form-two-col">
@@ -143,7 +144,7 @@ export function NewProductPage() {
               </div>
             </div>
           </div>
-          <div className="form-panel"><div className="form-section-heading"><span>03</span><div><h2>Choisissez un prix</h2><p>Le prix sera affiché dans la devise choisie.</p></div></div>
+          <div className="form-panel"><div className="form-section-heading"><span>03</span><div><h2>Choisissez un prix</h2><p>Votre client verra le prix dans la devise sélectionnée.</p></div></div>
             <div className="form-two-col price-row"><div className="field-group"><label htmlFor="product-price">Prix</label><input className="field-input" id="product-price" type="number" min="0" step="0.01" required value={price} onChange={(event) => setPrice(event.target.value)} /></div><div className="field-group"><label htmlFor="product-currency">Devise</label><select className="field-select" id="product-currency" value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="EUR">EUR · Euro</option><option value="USD">USD · Dollar américain</option><option value="XOF">XOF · Franc CFA</option><option value="MAD">MAD · Dirham marocain</option></select></div></div>
           </div>
           {(kind === "course" || kind === "membership") && <ProductContentEditor kind={kind} value={content} products={products} creatorId={user.id} localContent={!supabaseConfigured || user.isDemo} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}

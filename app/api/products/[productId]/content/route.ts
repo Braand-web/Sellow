@@ -11,7 +11,7 @@ type RouteContext = { params: Promise<{ productId: string }> };
 export async function GET(_request: Request, { params }: RouteContext) {
   const { productId } = await params;
   const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!admin) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
   const auth = await getSupabaseServerClient();
   const { data: authData } = auth ? await auth.auth.getUser() : { data: { user: null } };
   const { data: product } = await admin.from("products").select("id, creator_id, product_kind, published, details").eq("id", productId).maybeSingle();
@@ -56,7 +56,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
   const { data: authData } = auth ? await auth.auth.getUser() : { data: { user: null } };
   if (!authData.user) return NextResponse.json({ error: "Connectez-vous pour modifier ce contenu." }, { status: 401 });
   const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!admin) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
   const { data: product } = await admin.from("products").select("id, creator_id, product_kind").eq("id", productId).maybeSingle();
   if (!product || product.creator_id !== authData.user.id) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
   let body: { content?: unknown };
@@ -124,7 +124,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
   const { data: authData } = auth ? await auth.auth.getUser() : { data: { user: null } };
   if (!authData.user) return NextResponse.json({ error: "Connectez-vous pour migrer ce contenu." }, { status: 401 });
   const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!admin) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
   const { data: product } = await admin.from("products").select("id, creator_id, details").eq("id", productId).maybeSingle();
   if (!product || product.creator_id !== authData.user.id) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
   const { data: current } = await admin.from("product_contents").select("product_id").eq("product_id", productId).maybeSingle();

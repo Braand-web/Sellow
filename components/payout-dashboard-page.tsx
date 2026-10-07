@@ -1,6 +1,8 @@
 "use client";
 
+import { publicErrorMessage } from "@/lib/copy.mjs";
 import Link from "next/link";
+import { commissionCopy, paymentCopy } from "@/lib/copy.mjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Bank, CheckCircle, Clock, CurrencyDollar, ShieldCheck, XCircle } from "@phosphor-icons/react";
 import { useMarketplace } from "@/app/providers";
@@ -60,7 +62,7 @@ export function PayoutDashboardPage() {
       fetch("/api/admin/payout-requests", { cache: "no-store" }).catch(() => null),
     ]);
     if (!earningsResponse?.ok || !requestsResponse?.ok) {
-      setLoadError("Les revenus et demandes de retrait ne sont pas disponibles. Vérifiez la migration Supabase et la configuration de paiement.");
+      setLoadError("Vos revenus et demandes de retrait n’ont pas pu être chargés. Réessayez plus tard.");
       return;
     }
     const earnings = await earningsResponse.json() as { balances: Balance[]; lifetimeSalesUsd: number; commissionRate: number };
@@ -100,7 +102,7 @@ export function PayoutDashboardPage() {
       setNotice("Votre demande a été enregistrée. Le montant est réservé pendant son traitement.");
       await load();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "La demande n’a pas été enregistrée.");
+      setError(publicErrorMessage(submitError, "La demande n’a pas été enregistrée."));
     } finally { setBusy(false); }
   }
 
@@ -117,7 +119,7 @@ export function PayoutDashboardPage() {
       setNotice("Le statut de la demande a été enregistré.");
       await load();
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "La demande n’a pas pu être mise à jour.");
+      setError(publicErrorMessage(updateError, "La demande n’a pas pu être mise à jour."));
     } finally { setBusy(false); }
   }
 
@@ -126,9 +128,9 @@ export function PayoutDashboardPage() {
   return (
     <div className="page-wrap payout-page">
       <nav className="breadcrumbs" aria-label="Fil d’Ariane"><Link href="/studio"><ArrowLeft size={14} /> Espace créateur</Link><span>›</span><span>Revenus et retraits</span></nav>
-      <header className="dashboard-header"><div><p className="page-eyebrow">Paiements SasPay</p><h1>Revenus et retraits</h1><p>Suivez vos ventes confirmées et demandez un versement mobile money.</p></div><Link className="button button-light button-small" href="/studio">Mes produits <ArrowRight size={15} /></Link></header>
+      <header className="dashboard-header"><div><p className="page-eyebrow">Vos revenus sur Sellow</p><h1>Revenus et retraits</h1><p>Suivez vos ventes confirmées et demandez un versement mobile money.</p></div><Link className="button button-light button-small" href="/studio">Mes produits <ArrowRight size={15} /></Link></header>
 
-      {user.isDemo && <div className="empty-state payout-empty"><CurrencyDollar size={28} /><h2>Les revenus réels apparaîtront ici</h2><p>Les demandes de retrait s’activent après la configuration SasPay et Supabase.</p></div>}
+      {user.isDemo && <div className="empty-state payout-empty"><CurrencyDollar size={28} /><h2>Les revenus réels apparaîtront ici</h2><p>Les commandes simulées ne génèrent aucun revenu. Les retraits concernent uniquement les ventes réelles confirmées.</p></div>}
       {loadError && !user.isDemo && <p className="form-error" role="alert">{loadError}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       {notice && <p className="form-success" role="status">{notice}</p>}
@@ -137,18 +139,18 @@ export function PayoutDashboardPage() {
         <section className="payout-tier" aria-label="Votre commission Sellow">
           <div><p className="page-eyebrow">Commission active</p><strong>{Math.round(commissionRate * 100)} %</strong><p>{money(lifetimeSalesUsd, "USD")} de ventes confirmées sur 5 000 $</p></div>
           <div className="payout-tier-progress"><span style={{ width: `${Math.min(100, lifetimeSalesUsd / 5000 * 100)}%` }} /></div>
-          <p>La commission passera à 5 % sur vos prochains paiements après 5 000 $ de ventes réussies cumulées.</p>
+          <p>{commissionRate <= 0.05 ? "Vous bénéficiez du taux de commission de 5 % sur vos nouveaux paiements." : "La commission passera à 5 % sur les nouveaux paiements après 5 000 $ de ventes brutes confirmées cumulées."}</p><p>{commissionCopy}</p>
         </section>
 
-        <section className="payout-section"><div className="section-heading"><div><p className="page-eyebrow">Ventes SasPay confirmées</p><h2>Votre solde</h2></div></div>
+        <section className="payout-section"><div className="section-heading"><div><p className="page-eyebrow">Ventes confirmées</p><h2>Votre solde</h2></div></div>
           {balances.length ? <div className="payout-balance-grid">{balances.map((balance) => <article className="payout-balance-card" key={balance.currency}>
             <div className="payout-balance-head"><span>{balance.currency}</span><strong>{money(balance.available, balance.currency)}</strong></div>
             <p>Disponible pour retrait</p>
-            <dl><div><dt>Ventes brutes</dt><dd>{money(balance.gross, balance.currency)}</dd></div><div><dt>Commission Sellow</dt><dd>{money(balance.commission, balance.currency)}</dd></div><div><dt>Frais SasPay</dt><dd>{money(balance.processorFees, balance.currency)}</dd></div><div><dt>Déjà réservé ou versé</dt><dd>{money(balance.reserved, balance.currency)}</dd></div></dl>
+            <dl><div><dt>Ventes brutes</dt><dd>{money(balance.gross, balance.currency)}</dd></div><div><dt>Commission Sellow</dt><dd>{money(balance.commission, balance.currency)}</dd></div><div><dt>{paymentCopy.fees}</dt><dd>{money(balance.processorFees, balance.currency)}</dd></div><div><dt>Déjà réservé ou versé</dt><dd>{money(balance.reserved, balance.currency)}</dd></div></dl>
           </article>)}</div> : <div className="empty-state payout-empty"><h3>Aucune vente réelle confirmée</h3><p>Une commande en attente n’est pas incluse dans le solde.</p></div>}
         </section>
 
-        <section className="payout-section payout-form-section"><div><p className="page-eyebrow">Versement manuel</p><h2>Demander un retrait</h2><p>Sellow réservera le montant pendant l’examen. Le virement sera ensuite effectué depuis le dashboard SasPay.</p></div>
+        <section className="payout-section payout-form-section"><div><p className="page-eyebrow">Versement manuel</p><h2>Demander un retrait</h2><p>Le montant demandé est réservé pendant l’examen de votre demande. Après approbation, le versement est effectué manuellement sur le compte mobile money indiqué.</p></div>
           <form className="form-stack payout-form" onSubmit={(event) => void requestPayout(event)}>
             <div className="field-group"><label htmlFor="payout-currency">Devise à retirer</label><select className="field-input" id="payout-currency" required value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="" disabled>Choisissez une devise</option>{balances.map((balance) => <option key={balance.currency} value={balance.currency}>{balance.currency} · disponible {money(balance.available, balance.currency)}</option>)}</select></div>
             <div className="field-group"><label htmlFor="payout-amount">Montant</label><input className="field-input" id="payout-amount" type="number" min="0" step={currency ? 1 / 10 ** Math.min(2, currencyFractionDigits(currency)) : "0.01"} required value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={currency ? `Maximum ${selectedBalance?.available ?? 0}` : "Choisissez une devise"} /></div>
@@ -165,7 +167,7 @@ export function PayoutDashboardPage() {
 
         {adminRequests && <section className="payout-section admin-payout-section"><div className="section-heading"><div><p className="page-eyebrow"><ShieldCheck size={14} /> Gestion Sellow</p><h2>Demandes à traiter</h2></div></div>
           {adminRequests.length ? <div className="payout-request-list">{adminRequests.map((item) => <article className="payout-request-row admin-payout-row" key={item.id}><div><strong>{item.creatorName} · {money(item.amount, item.currency)}</strong>{item.creatorSlug && <Link href={`/createurs/${encodeURIComponent(item.creatorSlug)}`}>Voir la boutique</Link>}<span>{item.accountName} · {item.network} · {item.countryCode} · {item.phoneNumber}</span><small>{statusLabel(item.status)} · {new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(new Date(item.createdAt))}</small></div>
-            {item.status !== "paid" && item.status !== "rejected" && <div className="admin-payout-actions">{item.status === "requested" && <><button className="button button-light button-small" type="button" disabled={busy} onClick={() => void updateRequest(item.id, "approved")}>Approuver</button><button className="button button-light button-small" type="button" disabled={busy} onClick={() => void updateRequest(item.id, "rejected")}>Refuser</button></>}{item.status === "approved" && <><label className="visually-hidden" htmlFor={`reference-${item.id}`}>Référence SasPay du versement</label><input className="field-input" id={`reference-${item.id}`} value={paymentReferences[item.id] ?? ""} onChange={(event) => setPaymentReferences((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Référence du versement" /><button className="button button-dark button-small" type="button" disabled={busy || (paymentReferences[item.id] ?? "").trim().length < 2} onClick={() => void updateRequest(item.id, "paid")}>Marquer versée</button><button className="button button-light button-small" type="button" disabled={busy} onClick={() => void updateRequest(item.id, "rejected")}>Refuser</button></>}</div>}</article>)}</div> : <div className="empty-state payout-empty"><h3>Aucune demande à traiter</h3><p>Les demandes des créateurs apparaîtront ici.</p></div>}
+            {item.status !== "paid" && item.status !== "rejected" && <div className="admin-payout-actions">{item.status === "requested" && <><button className="button button-light button-small" type="button" disabled={busy} onClick={() => void updateRequest(item.id, "approved")}>Approuver</button><button className="button button-light button-small" type="button" disabled={busy} onClick={() => void updateRequest(item.id, "rejected")}>Refuser</button></>}{item.status === "approved" && <><label className="visually-hidden" htmlFor={`reference-${item.id}`}>{paymentCopy.reference}</label><input className="field-input" id={`reference-${item.id}`} value={paymentReferences[item.id] ?? ""} onChange={(event) => setPaymentReferences((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Référence du versement" /><button className="button button-dark button-small" type="button" disabled={busy || (paymentReferences[item.id] ?? "").trim().length < 2} onClick={() => void updateRequest(item.id, "paid")}>Marquer versée</button><button className="button button-light button-small" type="button" disabled={busy} onClick={() => void updateRequest(item.id, "rejected")}>Refuser</button></>}</div>}</article>)}</div> : <div className="empty-state payout-empty"><h3>Aucune demande à traiter</h3><p>Les demandes des créateurs apparaîtront ici.</p></div>}
         </section>}
       </>}
     </div>

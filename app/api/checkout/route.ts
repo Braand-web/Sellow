@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { paymentCopy } from "@/lib/copy.mjs";
 import { NextResponse } from "next/server";
 import { currencyFractionDigits } from "@/lib/payment/accounting.mjs";
 import { getUsdRate } from "@/lib/payment/fx";
@@ -70,7 +71,7 @@ function productFromRow(row: Record<string, unknown>): Product {
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Origine de la demande non autorisée." }, { status: 403 });
   const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: "Supabase côté serveur n’est pas configuré." }, { status: 503 });
+  if (!admin) return NextResponse.json({ error: "Ce service est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
 
   const authClient = await getSupabaseServerClient();
   const { data: authData } = authClient ? await authClient.auth.getUser() : { data: { user: null } };
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
 
   let body: CheckoutBody;
   try { body = await request.json() as CheckoutBody; }
-  catch { return NextResponse.json({ error: "La demande de checkout est invalide." }, { status: 400 }); }
+  catch { return NextResponse.json({ error: "La demande de paiement est invalide." }, { status: 400 }); }
 
   const slug = body.slug?.trim();
   const buyerEmail = buyer.email.trim().toLowerCase();
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
   const mode = process.env.PAYMENT_MODE ?? (process.env.NODE_ENV === "production" ? "disabled" : "demo");
   if (mode === "saspay") {
     if (!process.env.SASPAY_API_KEY || !process.env.SASPAY_WEBHOOK_SECRET) {
-      return NextResponse.json({ error: "Le checkout SasPay n’est pas encore entièrement configuré. Réessayez plus tard." }, { status: 503 });
+      return NextResponse.json({ error: paymentCopy.unavailable }, { status: 503 });
     }
     if (currencyFractionDigits(product.currency) > 2) {
       return NextResponse.json({ error: "Cette devise demande une précision que le catalogue ne permet pas encore." }, { status: 422 });
@@ -107,7 +108,10 @@ export async function POST(request: Request) {
 
     let fx;
     try { fx = await getUsdRate(product.currency); }
-    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "La conversion de devise est indisponible." }, { status: 503 }); }
+    catch {
+      console.warn("checkout.currency_conversion_failed", { currency: product.currency });
+      return NextResponse.json({ error: "La conversion de devise est temporairement indisponible. Réessayez plus tard." }, { status: 503 });
+    }
 
     const { data: prepared, error: prepareError } = await admin.rpc("prepare_saspay_order", {
       p_idempotency_key: idempotencyKey,

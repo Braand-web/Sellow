@@ -95,7 +95,7 @@ test("combine recherche, catégorie, type et tag puis effacer les filtres", asyn
   await expect(page.locator(".product-card-title")).toHaveCount(1);
   await expect(page.locator(".product-card-title").first()).toContainText("Figma, du croquis");
   await page.getByLabel("Rechercher dans les produits").fill("aucun-produit-avec-ce-nom");
-  await expect(page.getByText("Aucune création pour le moment")).toBeVisible();
+  await expect(page.getByText("Aucun produit ne correspond à votre recherche")).toBeVisible();
   await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
   await expect(page.locator(".product-card-title")).toHaveCount(10);
 });
@@ -122,7 +122,7 @@ test("l’éditeur enrichit la description, insère une image et explique l’As
   await description.press("ArrowRight");
 
   await page.getByRole("button", { name: "Assistant IA" }).click();
-  await expect(page.getByText("Un fournisseur d’IA devra être configuré pour activer la rédaction et l’amélioration de ce texte.")).toBeVisible();
+  await expect(page.getByText("L’Assistant IA n’est pas encore disponible. Vous pouvez rédiger et mettre en forme votre texte avec l’éditeur.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Rédiger" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Améliorer" })).toBeDisabled();
   await page.getByRole("button", { name: "Fermer l’assistant IA" }).click();
@@ -184,7 +184,7 @@ test("le créateur modifie le plan du cours, publie, puis l’acheteur retrouve 
   await page.getByLabel(/Je comprends qu’il s’agit/).check();
   await page.getByRole("button", { name: "Confirmer l’achat simulé" }).click();
   await page.getByRole("link", { name: "Ouvrir ma bibliothèque" }).click();
-  await page.getByRole("link", { name: "Apprendre" }).click();
+  await page.getByRole("link", { name: "Suivre le cours" }).click();
   await expect(page.getByRole("heading", { name: "Les bases améliorées" })).toBeVisible();
   await expect(page.getByText("Choisissez une idée et posez ses premières étapes.")).toBeVisible();
   await expect(page.getByRole("group", { name: "Lecteur vidéo : Les bases améliorées" })).toBeVisible();
@@ -283,7 +283,8 @@ for (const { slug, kind } of demoProducts) {
     if (kind === "Objet physique") await page.getByLabel("Adresse de livraison").fill("10 rue des Tests, Dakar, Sénégal");
     await page.getByLabel(/Je comprends qu’il s’agit/).check();
     await page.getByRole("button", { name: /Confirmer l’achat simulé|Activer l’abonnement simulé/ }).click();
-    await expect(page.getByRole("heading", { name: "Votre création est prête." })).toBeVisible();
+    const confirmationTitles: Record<string, string> = { "Fichier numérique": "Vos fichiers sont disponibles", "Cours": "Votre cours est disponible", "Abonnement": "Votre espace membre est ouvert", "Objet physique": "Votre commande est confirmée", "Service": "Votre prestation est commandée" };
+    await expect(page.getByRole("heading", { name: confirmationTitles[kind] })).toBeVisible();
     await expect(page.getByText("Aucun paiement réel n’a été effectué.")).toBeVisible();
   });
 }
@@ -308,7 +309,7 @@ test("les filtres sans résultat sont utilisables au clavier sur mobile", async 
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Aller au contenu" })).toBeFocused();
   await page.getByLabel("Rechercher dans les produits").fill("aucun-resultat-mobile-zz");
-  await expect(page.getByText("Aucune création pour le moment")).toBeVisible();
+  await expect(page.getByText("Aucun produit ne correspond à votre recherche")).toBeVisible();
   await expect(page.getByRole("button", { name: "Réinitialiser les filtres" })).toBeVisible();
 });
 
@@ -317,4 +318,38 @@ test("les actions de commande Supabase refusent une requête sans session", asyn
   expect(cancellation.status()).toBe(401);
   const download = await page.request.get("/api/files/00000000-0000-4000-8000-000000000001");
   expect(download.status()).toBe(401);
+});
+
+
+test("les textes Sellow présentent les deux parcours sans marque de paiement visible", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Découvrez des créations.");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Vendez les vôtres.");
+  await expect(page.getByRole("button", { name: "Explorer les produits", exact: true })).toBeVisible();
+  await expect(page.locator(".hero-copy").getByRole("link", { name: "Créer ma boutique" })).toBeVisible();
+  await expect(page).toHaveTitle(/Découvrez des créations, vendez les vôtres/);
+  for (const route of ["/", "/conditions", "/confidentialite", "/inscription", "/bibliotheque", "/checkout/kit-identite-vivante"]) {
+    await page.goto(route);
+    await expect(page.locator("body")).not.toContainText(/SasPay|Supabase/);
+    const labels = await page.locator("[aria-label], [title], [alt]").evaluateAll((nodes) => nodes.map((node) => [node.getAttribute("aria-label"), node.getAttribute("title"), node.getAttribute("alt")].join(" ")).join(" "));
+    expect(labels).not.toMatch(/SasPay|Supabase/i);
+  }
+});
+
+test("les nouveaux textes et appels à l’action restent lisibles sur mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await registerDemoCreator(page, "mobile-copy@exemple.test");
+  for (const route of ["/", "/studio", "/studio/nouveau", "/studio/retraits", "/bibliotheque", "/checkout/kit-identite-vivante"]) {
+    await page.goto(route);
+    await expect(page.locator("body")).not.toContainText(/SasPay|Supabase/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+  await page.goto("/");
+  const explore = page.getByRole("button", { name: "Explorer les produits", exact: true });
+  await expect(explore).toBeVisible();
+  expect(await explore.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+  await explore.focus();
+  await expect(explore).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Explorez les produits", level: 2, exact: true })).toBeVisible();
 });

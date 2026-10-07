@@ -1,5 +1,6 @@
 "use client";
 
+import { publicErrorMessage } from "@/lib/copy.mjs";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -61,7 +62,7 @@ export function LearningPage() {
         setActiveLessonId(nextContent.modules.flatMap((module) => module.lessons)[0]?.id ?? null);
       }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Le cours n’a pas pu être chargé.");
+      setError(publicErrorMessage(loadError, "Le cours n’a pas pu être chargé."));
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export function LearningPage() {
     setProgress(next);
     setError(null);
     try { await saveCourseProgress(product.id, next); }
-    catch (saveError) { setError(saveError instanceof Error ? saveError.message : "La progression n’a pas pu être enregistrée."); }
+    catch (saveError) { setError(publicErrorMessage(saveError, "La progression n’a pas pu être enregistrée.")); }
   }
 
   async function selectLesson(lessonId: string) {
@@ -93,7 +94,7 @@ export function LearningPage() {
     const next = { ...progress, lastLessonId: lessonId };
     setProgress(next);
     try { await saveCourseProgress(product.id, next); }
-    catch (saveError) { setError(saveError instanceof Error ? saveError.message : "La reprise du cours n’a pas pu être enregistrée."); }
+    catch (saveError) { setError(publicErrorMessage(saveError, "La reprise du cours n’a pas pu être enregistrée.")); }
   }
 
   async function download(resourceId: string, fileName: string, storagePath?: string) {
@@ -116,7 +117,7 @@ export function LearningPage() {
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (downloadFailure) {
-      setDownloadError(downloadFailure instanceof Error ? downloadFailure.message : "Le téléchargement a échoué.");
+      setDownloadError(publicErrorMessage(downloadFailure, "Le téléchargement a échoué."));
     }
   }
 
@@ -137,8 +138,8 @@ export function LearningPage() {
             {current.description || current.descriptionContent ? <RichTextContent className="lesson-body" value={current.descriptionContent} fallbackText={current.description} productId={product.id} privateContent localContent={!supabaseConfigured || user?.isDemo || !/^[0-9a-f-]{36}$/i.test(product.id)} /> : <p className="field-help lesson-empty">Aucun texte ajouté à cette leçon.</p>}
             {current.resources?.length ? <section className="lesson-resources"><h3>Fichiers de la leçon</h3>{current.resources.map((resource) => <button className="resource-download" key={resource.id} type="button" onClick={() => void download(resource.id, resource.fileName, resource.storagePath)}><ArrowDown size={16} /><span>{resource.name}</span><small>Télécharger</small></button>)}</section> : null}
             {downloadError && <p className="form-error" role="alert">{downloadError}</p>}
-            {isPreview ? <div className="preview-cta"><p>Cette leçon est offerte en aperçu. Achetez le cours pour suivre tous les modules et enregistrer votre progression.</p><Link className="button button-dark" href={`/checkout/${product.slug}`}>Découvrir le cours complet <ArrowRight size={16} /></Link></div> : <div className="lesson-controls"><button className={`button ${progress.completedLessonIds.includes(current.id) ? "button-light" : "button-dark"}`} type="button" onClick={() => void toggleComplete(current)}>{progress.completedLessonIds.includes(current.id) ? <CheckCircle size={17} weight="fill" /> : <Check size={17} />} {progress.completedLessonIds.includes(current.id) ? "Marquée comme terminée" : "Marquer comme terminée"}</button><div><button className="button button-light button-small" type="button" disabled={currentIndex <= 0} onClick={() => void selectLesson(lessons[currentIndex - 1]?.lesson.id ?? "")}>Précédente</button><button className="button button-dark button-small" type="button" disabled={currentIndex >= lessons.length - 1} onClick={() => void selectLesson(lessons[currentIndex + 1]?.lesson.id ?? "")}>Suivante <ArrowRight size={15} /></button></div></div>}
-          </article> : <div className="content-empty"><h2>Le cours est en préparation</h2><p>Le créateur ajoutera bientôt les premières leçons.</p></div>}
+            {isPreview ? <div className="preview-cta"><p>Cette leçon est offerte en aperçu. Achetez le cours pour suivre tous les modules et enregistrer votre progression.</p><Link className="button button-dark" href={`/checkout/${product.slug}`}>Accéder au cours complet <ArrowRight size={16} /></Link></div> : <div className="lesson-controls"><button className={`button ${progress.completedLessonIds.includes(current.id) ? "button-light" : "button-dark"}`} type="button" onClick={() => void toggleComplete(current)}>{progress.completedLessonIds.includes(current.id) ? <CheckCircle size={17} weight="fill" /> : <Check size={17} />} {progress.completedLessonIds.includes(current.id) ? "Marquée comme terminée" : "Marquer comme terminée"}</button><div><button className="button button-light button-small" type="button" disabled={currentIndex <= 0} onClick={() => void selectLesson(lessons[currentIndex - 1]?.lesson.id ?? "")}>Précédente</button><button className="button button-dark button-small" type="button" disabled={currentIndex >= lessons.length - 1} onClick={() => void selectLesson(lessons[currentIndex + 1]?.lesson.id ?? "")}>Suivante <ArrowRight size={15} /></button></div></div>}
+          </article> : <div className="content-empty"><h2>Le cours est en préparation</h2><p>Aucune leçon n’est disponible pour le moment. Consultez la fiche du cours pour connaître les contenus proposés.</p></div>}
           {!isPreview && <div className="learning-progress"><div><strong>Votre progression</strong><span>{progress.completedLessonIds.length} sur {lessons.length} leçon{lessons.length > 1 ? "s" : ""}</span></div><progress max={Math.max(lessons.length, 1)} value={progress.completedLessonIds.length} aria-label="Progression du cours" /></div>}
           {product.published && <p className="learning-help">Si une vidéo ne se lance pas, ouvrez la leçon plus tard ou vérifiez le lien auprès du créateur.</p>}
         </main>
