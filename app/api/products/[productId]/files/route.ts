@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { canAccessProductContent } from "@/lib/supabase/content-access";
-import { normalizeProductFiles, productFileStoragePath, productFilesFromRows } from "@/lib/product-files.mjs";
+import { normalizeProductFiles, productFileStoragePath, productFilesFromRows, readAllProductFileRows } from "@/lib/product-files.mjs";
 
 type Context = { params: Promise<{ productId: string }> };
 const privateHeaders = { "Cache-Control": "private, no-store" };
@@ -22,9 +22,12 @@ export async function GET(_request: Request, { params }: Context) {
   const { productId } = await params;
   const authorization = await authorize(productId);
   if (authorization.response) return authorization.response;
-  const { data, error } = await authorization.admin.from("product_files").select("id, name, file_name, size_bytes, mime_type, position").eq("product_id", productId).order("position");
-  if (error) return NextResponse.json({ error: "La liste des fichiers n’a pas pu être chargée." }, { status: 503, headers: privateHeaders });
-  return NextResponse.json({ files: productFilesFromRows(data ?? []) }, { headers: privateHeaders });
+  try {
+    const rows = await readAllProductFileRows(authorization.admin, productId, "id, name, file_name, size_bytes, mime_type, position");
+    return NextResponse.json({ files: productFilesFromRows(rows) }, { headers: privateHeaders });
+  } catch {
+    return NextResponse.json({ error: "La liste des fichiers n’a pas pu être chargée." }, { status: 503, headers: privateHeaders });
+  }
 }
 
 export async function PUT(request: Request, { params }: Context) {
@@ -36,8 +39,7 @@ export async function PUT(request: Request, { params }: Context) {
   try {
     const { files: input } = await request.json();
     const files = normalizeProductFiles(input);
-    const { data: existing, error: lookupError } = await admin.from("product_files").select("id, storage_path, file_name").eq("product_id", productId);
-    if (lookupError) throw new Error("La liste actuelle des fichiers est indisponible.");
+    const existing = await readAllProductFileRows(admin, productId, "id, storage_path, file_name, position");
     const rows = files.map((file) => {
       const previous = existing?.find((row) => row.id === file.id);
       if (previous && previous.file_name !== file.fileName) throw new Error("Le nom du fichier source ne peut pas être modifié. Modifiez son nom d’affichage.");
