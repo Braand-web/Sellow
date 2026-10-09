@@ -1,4 +1,5 @@
 "use client";
+import { ContactSellerButton } from "@/components/contact-seller-button";
 
 import { publicErrorMessage } from "@/lib/copy.mjs";
 import Link from "next/link";
@@ -88,6 +89,7 @@ export function OrderContentPage() {
         {product && <ProductCover product={product} compact />}
         <div><p className="page-eyebrow">{order.status === "canceled_demo" ? "Accès simulé fermé" : order.status === "paid" ? "Paiement confirmé" : "Achat simulé · Aucun paiement réel"}</p><h1>{order.productTitle}</h1><p>Par <Link href={order.creatorSlug ? `/createurs/${order.creatorSlug}` : "/"}>{order.creatorName}</Link></p></div>
         {isPaid && <span className="content-confirmed"><CheckCircle size={17} weight="fill" /> Accès {order.productKind === "membership" && !membershipActive ? "terminé" : "actif"}</span>}
+        <ContactSellerButton orderId={order.id} sellerId={product?.creatorId} remote={order.isRemote ?? false}/>
       </div>
 
       {order.productKind === "course" && <section className="content-panel"><p className="page-eyebrow">Votre cours</p><h2>Leçons à suivre à votre rythme</h2><p className="content-copy">Reprenez votre dernière leçon et retrouvez votre progression à chaque visite.</p><Link className="button button-dark" href={`/apprendre/${encodeURIComponent(order.productSlug)}`}>Suivre le cours <PlayCircle size={17} /></Link></section>}

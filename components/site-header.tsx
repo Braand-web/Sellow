@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, MagnifyingGlass, Storefront } from "@phosphor-icons/react";
+import { ArrowRight, ChatCircle, MagnifyingGlass, Storefront } from "@phosphor-icons/react";
+import { useMessaging } from "@/components/messaging-provider";
 import { FormEvent, useState } from "react";
 import { useMarketplace } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
@@ -11,6 +12,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useMarketplace();
+  const { enabled, unread } = useMessaging();
   const [query, setQuery] = useState("");
 
   function search(event: FormEvent<HTMLFormElement>) {
@@ -43,6 +45,7 @@ export function SiteHeader() {
           {user ? (
             <>
               <Link className="header-library" href="/bibliotheque">Ma bibliothèque</Link>
+              {enabled && <Link className="header-messages" href="/messages" aria-label={`Messages${unread ? `, ${unread} non lus` : ""}`}><ChatCircle size={23} aria-hidden="true"/>{unread > 0 && <span className="message-count">{unread > 99 ? "99+" : unread}</span>}</Link>}
               <Link className="header-avatar" href="/studio" aria-label={`Ouvrir l’espace de ${user.name}`}>
                 <span className="avatar avatar-rose">{user.initials}</span>
               </Link>

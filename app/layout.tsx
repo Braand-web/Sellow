@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { MarketplaceProvider } from "@/app/providers";
 import { GlobalNotice } from "@/components/global-notice";
+import { MessagingProvider } from "@/components/messaging-provider";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://sellow.fun"),
@@ -31,11 +32,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="fr" data-scroll-behavior="smooth">
       <body>
         <MarketplaceProvider>
-          <a className="skip-link" href="#contenu">Aller au contenu</a>
-          <SiteHeader />
-          <main id="contenu">{children}</main>
-          <SiteFooter />
-          <GlobalNotice />
+          <MessagingProvider enabled={process.env.MESSAGING_ENABLED === "true"}>
+            <a className="skip-link" href="#contenu">Aller au contenu</a>
+            <SiteHeader />
+            <main id="contenu">{children}</main>
+            <SiteFooter />
+            <GlobalNotice />
+          </MessagingProvider>
         </MarketplaceProvider>
       </body>
     </html>

@@ -46,3 +46,15 @@ npm run test
 ```
 
 Les tests navigateur désactivent le cache disque de Turbopack sur leur serveur local. Si l’espace disque est limité, `SELLOW_DISABLE_DISK_CACHE=true` désactive aussi ce cache pour une compilation ou un serveur de développement. Cette option ne change pas le fonctionnement de l’application ; le cache reste activé par défaut en production.
+
+## Messagerie clients–vendeurs
+
+`/messages` regroupe les échanges privés : un fil par client et vendeur. Le client ouvre le fil depuis un produit publié, une boutique ou une commande confirmée de son compte. La messagerie n’ajoute aucune étape au checkout. Une session d’achat invité seule ne suffit pas : son adresse doit d’abord être vérifiée.
+
+Appliquez `supabase/migrations/20261009055957_private_messaging.sql`. Cette migration crée les tables protégées par RLS, les RPC réservées au serveur, le bucket privé `message-files` et les publications Realtime. Les écritures ne sont jamais autorisées directement aux clients. Le serveur prend l’identité dans `Auth.getUser()`, contrôle les références et valide les signatures des fichiers avant leur rattachement. Les téléchargements sont autorisés par identifiant et signés pour 60 secondes. Les fichiers abandonnés sont nettoyés après 24 heures.
+
+Déployez la fonction `message-notifications` avec `--no-verify-jwt`, puis exécutez `supabase/messaging-cron.sql`. La fonction vérifie `EMAIL_WORKER_SECRET` avant toute action. Elle réutilise `RESEND_API_KEY`, le domaine vérifié et les secrets Vault `sellow_project_url` / `sellow_email_worker_secret` du worker de reçus. L’expéditeur est `Sellow <messages@notifications.sellow.fun>`. Un appel protégé avec `{ "action": "check-delivery", "testId": "UUID" }` teste cet expéditeur vers la boîte de simulation fixe de Resend, sans envoyer de message à un client.
+
+Après vérification, définissez `MESSAGING_ENABLED=true` dans Vercel et redéployez. Pour fermer temporairement les nouveaux échanges, remettez cette variable à `false` et redéployez ; l’historique reste conservé. Si nécessaire, suspendez séparément la tâche Cron `sellow-message-notifications`. Le mode local conserve les échanges et fichiers dans IndexedDB et n’envoie pas d’e-mails.
+
+Les alertes attendent cinq minutes sans lecture et sont regroupées, avec au maximum une alerte toutes les quinze minutes par conversation et destinataire. Une lecture, un blocage ou une désactivation des e-mails annule les alertes en attente. Les messages effectivement visibles ont des accusés de lecture individuels ; ouvrir la dernière page ne marque pas les anciennes pages comme lues. Les reprises réseau réutilisent le même identifiant de message et la même clé d’envoi e-mail. Les achats affichés sont limités au client vérifié et au vendeur du fil ; les acquisitions gratuites, remboursements et démonstrations ne sont pas comptés comme ventes payées actives.

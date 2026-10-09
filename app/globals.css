@@ -1109,3 +1109,88 @@ p { text-wrap: pretty; }
   .product-file-actions { justify-content: flex-end; }
   .library-downloads { grid-column: 1 / -1; width: 100%; }
 }
+
+/* Private conversations share the typography and tokens of the creator studio. */
+.header-messages { position: relative; display: grid; place-items: center; min-width: 44px; min-height: 44px; }
+.message-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 50%; background: var(--ink); color: var(--white); font-size: 12px; font-weight: 700; }
+.header-messages .message-count { position: absolute; top: 0; right: -4px; }
+.dashboard-tabs .message-count { margin-left: 8px; }
+.contact-seller { margin-top: 12px; }
+.detail-purchase .contact-seller { width: 100%; }
+.messages-page .dashboard-header { margin-bottom: 24px; }
+.messages-layout { display: grid; grid-template-columns: 280px minmax(0,1fr) 260px; min-height: 640px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); overflow: hidden; }
+.messages-layout h2 { font-size: 18px; line-height: 24px; }
+.messages-list { border-right: 1px solid var(--line); min-width: 0; }
+.messages-list > h2 { display: flex; justify-content: space-between; padding: 24px 16px; border-bottom: 1px solid var(--line); }
+.messages-list > h2 > span { color: var(--muted); font-size: 14px; }
+.conversation-row { display: flex; align-items: flex-start; gap: 12px; padding: 16px; min-height: 88px; border-bottom: 1px solid var(--line); }
+.conversation-row:hover, .conversation-row.selected { background: var(--paper); }
+.conversation-row.selected { box-shadow: inset 3px 0 var(--ink); }
+.conversation-row > span:nth-child(2) { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+.conversation-row strong { font-size: 14px; overflow-wrap: anywhere; }
+.conversation-row small { color: var(--muted); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.conversation-row .avatar { flex: 0 0 32px; height: 32px; width: 32px; font-size: 12px; }
+.customer-badge { display: inline-block; align-self: flex-start; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); font-size: 12px; line-height: 16px; font-weight: 600; }
+.customer-badge.buyer { background: var(--green); border-color: var(--green); }
+.messages-chat { display: flex; min-width: 0; flex-direction: column; }
+.message-thread-header { display: flex; justify-content: space-between; gap: 16px; padding: 24px; border-bottom: 1px solid var(--line); }
+.message-thread-header p { color: var(--muted); font-size: 14px; margin: 4px 0 8px; }
+.message-thread-header h2 { overflow-wrap: anywhere; }
+.message-private { display: flex; align-items: center; align-self: flex-start; gap: 4px; font-size: 12px; color: var(--muted); }
+.message-log { display: flex; flex-direction: column; gap: 16px; padding: 24px; height: 420px; overflow: auto; overscroll-behavior: contain; }
+.message-history-note { text-align: center; color: var(--muted); font-size: 12px; padding: 8px 0 16px; }
+.message-bubble { align-self: flex-start; max-width: 90%; min-width: 100px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); padding: 12px 16px; overflow-wrap: anywhere; }
+.message-bubble.outgoing { align-self: flex-end; background: var(--blue); border-color: var(--blue); }
+.message-bubble > p { white-space: pre-wrap; font-size: 16px; }
+.message-bubble time { display: block; color: var(--ink); opacity: .7; font-size: 12px; margin-top: 8px; }
+.message-context { display: flex; gap: 8px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.message-context svg { flex: 0 0 auto; }
+.message-context small { display: block; margin-top: 4px; }
+.message-file { display: flex; align-items: center; gap: 8px; padding: 12px; width: 100%; border: 1px solid var(--line); border-radius: 4px; background: var(--white); text-align: left; margin: 8px 0; cursor: pointer; }
+.message-file span { min-width: 0; overflow-wrap: anywhere; }
+.message-file small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.message-composer { padding: 16px 24px; border-top: 1px solid var(--line); }
+.message-composer > label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.message-composer textarea { width: 100%; resize: vertical; min-height: 96px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--white); }
+.composer-context { font-size: 12px; margin-bottom: 12px; }
+.composer-actions { display: flex; justify-content: space-between; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.composer-actions > label { position: relative; cursor: pointer; }
+.composer-actions > label:focus-within { outline: 3px solid #5b71d9; outline-offset: 3px; }
+.composer-actions .button { min-height: 44px; }
+.message-file-selection { display: flex; flex-wrap: wrap; gap: 8px; }
+.message-file-selection > span { display: flex; align-items: center; gap: 4px; font-size: 12px; overflow-wrap: anywhere; max-width: 100%; }
+.message-file-selection button { display: grid; place-items: center; min-height: 44px; min-width: 44px; background: none; border: 0; cursor: pointer; }
+.messages-purchases { border-left: 1px solid var(--line); padding: 24px 16px; min-width: 0; font-size: 14px; }
+.messages-purchases h2 { margin-bottom: 16px; }
+.messages-purchases > p { margin-top: 12px; color: var(--muted); }
+.customer-purchase { display: flex; flex-direction: column; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.customer-purchase strong, .customer-purchase small { overflow-wrap: anywhere; }
+.customer-purchase time, .customer-purchase small { color: var(--muted); font-size: 12px; }
+.message-preferences { margin-top: 24px; }
+.message-preferences h3 { font-size: 16px; }
+.message-preferences label { display: flex; gap: 8px; align-items: center; min-height: 44px; cursor: pointer; }
+.message-preferences p { color: var(--muted); font-size: 12px; margin: 8px 0 16px; }
+.message-preferences button { min-height: 44px; text-align: left; }
+.message-blocked { padding: 24px; border-top: 1px solid var(--line); display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.messages-empty { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 24px; text-align: center; }
+.messages-empty > p { color: var(--muted); font-size: 14px; }
+.messages-mobile-nav { display: none; }
+@media (max-width: 1080px) {
+  .messages-layout { grid-template-columns: 1fr; min-height: 520px; }
+  .messages-mobile-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .messages-mobile-nav button { background: none; border: 0; min-height: 48px; flex: 1; font-size: 14px; cursor: pointer; }
+  .messages-mobile-nav button[aria-current='page'] { box-shadow: inset 0 -2px var(--ink); font-weight: 700; }
+  .messages-layout > * { display: none; }
+  .messages-view-list > .messages-list, .messages-view-chat > .messages-chat, .messages-view-purchases > .messages-purchases { display: flex; flex-direction: column; }
+  .messages-purchases, .messages-list { border: 0; }
+}
+@media (max-width: 480px) {
+  .message-log { padding: 16px; height: 380px; }
+  .message-thread-header, .message-composer { padding: 16px; }
+  .message-bubble { max-width: 95%; padding: 12px; }
+  .header-actions { gap: 8px; }
+  .header-messages { min-width: 40px; }
+  .library-row .contact-seller { grid-column: 1 / -1; }
+}
+.message-image { width: 100%; max-height: 280px; object-fit: contain; border-radius: 4px; margin-top: 8px; }
+@media (max-width: 780px) { .dashboard-tabs { flex-wrap: wrap; row-gap: 12px; } .dashboard-tabs a { min-height: 36px; display: inline-flex; align-items: center; } }

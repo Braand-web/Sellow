@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowRight } from "@phosphor-icons/react";
 import { formatPrice } from "@/components/product-card";
 import type { Product } from "@/lib/types";
@@ -49,7 +49,7 @@ export function MobilePurchaseBar({ product, label, checkoutHref, purchaseRef }:
     };
   }, [purchaseRef]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const bar = barRef.current;
     if (!visible || !bar) return;
     // Reserve the actual height, including wrapping labels and device safe areas.

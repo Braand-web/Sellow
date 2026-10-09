@@ -119,6 +119,26 @@ export type Creator = {
 
 export type DemoUser = Creator & { isDemo: boolean };
 
+export type MessageAttachment = { id: string; name: string; mimeType: string; size: number };
+export type Message = {
+  id: string; seq: number; conversationId: string; senderId: string; body: string; createdAt: string;
+  clientRequestId: string; productId?: string; orderId?: string; contextTitle?: string; contextSlug?: string;
+  attachments: MessageAttachment[];
+};
+export type Conversation = {
+  id: string; customerId: string; sellerId: string; customerName: string; sellerName: string; sellerSlug: string;
+  createdAt: string; lastMessageAt: string; unread: number; lastMessage?: string;
+};
+export type CustomerPurchase = {
+  id: string; productId: string; title: string; slug: string; amount: number; currency: string;
+  createdAt: string; status: string; kind: "paid" | "free" | "refunded" | "demo";
+};
+export type SellerCustomerSummary = { paidCount: number; freeCount: number; refundCount: number; demoCount: number; purchases: CustomerPurchase[] };
+export type ConversationDetail = {
+  conversation: Conversation; messages: Message[]; hasMore: boolean; summary: SellerCustomerSummary;
+  blocked: boolean; blockedByMe: boolean; emailNotifications: boolean;
+};
+
 export type Order = {
   id: string;
   buyerId?: string;

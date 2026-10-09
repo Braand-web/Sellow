@@ -41,6 +41,14 @@ async function scrollPastPurchase(page: Page, visiblePixels = -8) {
   }, visiblePixels);
 }
 
+async function expectPurchaseSpace(page: Page) {
+  // Observer callbacks and responsive layout settle asynchronously after scrolling.
+  await expect.poll(() => page.evaluate(() => {
+    const bar = document.querySelector('.mobile-purchase-bar');
+    return Boolean(bar && Number.parseFloat(getComputedStyle(document.body).paddingBottom) >= bar.getBoundingClientRect().height);
+  })).toBe(true);
+}
+
 for (const width of [320, 390, 780]) {
   test(`ordre mobile et barre d’achat au défilement à ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
@@ -75,7 +83,7 @@ for (const width of [320, 390, 780]) {
     await expect(bar.getByRole("link")).toHaveAttribute("href", await primary.getAttribute("href") ?? "");
     expect(await bar.evaluate((element) => getComputedStyle(element).position)).toBe("fixed");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    expect(await page.evaluate(() => Number.parseFloat(getComputedStyle(document.body).paddingBottom))).toBeGreaterThanOrEqual((await bar.boundingBox())!.height);
+    await expectPurchaseSpace(page);
     await page.screenshot({ path: testInfo.outputPath(`barre-mobile-${width}.png`) });
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
     await expect(bar).toHaveCount(0);
@@ -174,6 +182,7 @@ test("la barre laisse de la place aux notifications et au bas de la page", async
   await page.goto(`/produits/${download.slug}`);
   await scrollPastPurchase(page);
   await expect(page.locator(".mobile-purchase-bar")).toBeVisible();
+  await expectPurchaseSpace(page);
   // Simulate the global notification surface to check its responsive placement.
   await page.evaluate(() => {
     const notice = document.createElement("div");

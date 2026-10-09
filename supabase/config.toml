@@ -1,2 +1,5 @@
 [functions.purchase-emails]
 verify_jwt = false
+
+[functions.message-notifications]
+verify_jwt = false

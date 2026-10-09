@@ -10,9 +10,11 @@ import { ProductCover } from "@/components/product-cover";
 import { ProductImageGuidelines } from "@/components/product-image-guidelines";
 import { formatPrice } from "@/components/product-card";
 import { kindLabels } from "@/lib/types";
+import { useMessaging } from "@/components/messaging-provider";
 
 export function DashboardPage() {
   const router = useRouter();
+  const { enabled, unread } = useMessaging();
   const { user, products, orders, ready, supabaseConnected, togglePublished, deleteProduct, logout, setMessage } = useMarketplace();
   const [busyId, setBusyId] = useState<string | null>(null);
   const myProducts = products.filter((product) => product.creatorId === user?.id || product.creatorSlug === user?.slug);
@@ -46,7 +48,7 @@ export function DashboardPage() {
   return (
     <div className="page-wrap dashboard-wrap">
       <div className="dashboard-header"><div><p className="page-eyebrow">Bonjour {user.name.split(" ")[0]}</p><h1>Votre espace créateur</h1><p>Préparez vos produits, publiez votre catalogue et suivez vos ventes.</p></div><div className="dashboard-head-actions"><Link className="button button-dark" href="/studio/nouveau"><Plus size={18} weight="bold" /> Ajouter un produit</Link><button className="icon-button" type="button" onClick={() => void signOut()} aria-label="Se déconnecter"><SignOut size={17} /></button></div></div>
-      <nav className="dashboard-tabs" aria-label="Espace créateur"><Link aria-current="page" href="/studio">Produits</Link><Link href={`/createurs/${user.slug}`}>Ma boutique</Link><Link href="/studio/retraits">Revenus et retraits</Link><Link href="/bibliotheque">Ma bibliothèque</Link></nav>
+      <nav className="dashboard-tabs" aria-label="Espace créateur"><Link aria-current="page" href="/studio">Produits</Link><Link href={`/createurs/${user.slug}`}>Ma boutique</Link><Link href="/studio/retraits">Revenus et retraits</Link><Link href="/bibliotheque">Ma bibliothèque</Link>{enabled&&<Link href="/messages">Messages{unread>0&&<span className="message-count">{unread}</span>}</Link>}</nav>
       <div className="dashboard-notice"><span /> {supabaseConnected ? "Votre boutique est connectée. Vos produits publiés sont visibles dans le catalogue." : user.isDemo ? "Mode démonstration local. Les changements sont enregistrés dans ce navigateur." : "Votre compte est connecté. La boutique est temporairement indisponible. Réessayez plus tard."}</div>
       <div className="dashboard-stats">
         <div className="stat-card"><span>Produits publiés</span><strong>{myProducts.filter((item) => item.published).length}</strong></div>

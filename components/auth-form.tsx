@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { publicErrorMessage } from "@/lib/copy.mjs";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, LockKey, UserCircle } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useMarketplace } from "@/app/providers";
@@ -16,6 +16,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [destination,setDestination]=useState("");
+  useEffect(()=>{const next=new URLSearchParams(window.location.search).get("next");if(next?.startsWith("/")&&!next.startsWith("//")&&!next.includes("\\")){
+    // Preserve the requested discussion between login and signup after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDestination(`?next=${encodeURIComponent(next)}`);
+  }},[]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,7 +38,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         return;
       }
       const next = new URLSearchParams(window.location.search).get("next");
-      router.push(next?.startsWith("/") ? next : "/studio");
+      router.push(next?.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/studio");
     } catch (authError) {
       setError(publicErrorMessage(authError, "Une erreur est survenue."));
     } finally {
@@ -59,7 +65,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         {!success && <button className="button button-dark" type="submit" disabled={busy}>{busy ? isSignup ? "Création du compte…" : "Connexion…" : isSignup ? "Créer mon compte" : "Se connecter"}<ArrowRight size={17} /></button>}
       </form>
       {!isSignup && <Link className="text-link auth-email-link" href="/achats/retrouver">Retrouver mes achats sans mot de passe</Link>}
-      <div className="form-bottom">{isSignup ? <>Vous avez déjà un compte ? <Link href="/connexion">Se connecter</Link></> : <>Nouveau sur Sellow ? <Link href="/inscription">Créer un compte</Link></>}</div>
+      <div className="form-bottom">{isSignup ? <>Vous avez déjà un compte ? <Link href={`/connexion${destination}`}>Se connecter</Link></> : <>Nouveau sur Sellow ? <Link href={`/inscription${destination}`}>Créer un compte</Link></>}</div>
     </div>
   );
 }

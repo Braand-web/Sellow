@@ -6,6 +6,7 @@ import { ArrowRight, BookOpenText, Package, PlayCircle } from "@phosphor-icons/r
 import { useMarketplace } from "@/app/providers";
 import { LibraryDownloads } from "@/components/library-downloads";
 import { ProductCover } from "@/components/product-cover";
+import { ContactSellerButton } from "@/components/contact-seller-button";
 
 export function LibraryPage() {
   const { orders, products, user, ready, supabaseConfigured } = useMarketplace();
@@ -48,6 +49,7 @@ export function LibraryPage() {
             {product ? <ProductCover product={product} compact /> : <div className="library-placeholder"><Package size={24} /></div>}
             <div><p className="page-eyebrow">{order.productKind === "physical" ? "Objet physique" : order.productKind === "service" ? "Service" : order.productKind === "course" ? "Cours" : order.productKind === "membership" ? "Abonnement" : "Fichier numérique"}</p><h2>{order.productTitle}</h2><p>Par {order.creatorName} · {order.status === "paid_demo" ? "Commande simulée" : "Paiement confirmé"}</p>{order.productKind === "membership" && order.membershipExpiresAt && <p>Accès jusqu’au {new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(new Date(order.membershipExpiresAt))}</p>}</div>
             {order.productKind === "download" ? <LibraryDownloads order={order} product={product} /> : order.productKind === "course" ? <Link className="button button-dark button-small" href={`/apprendre/${encodeURIComponent(order.productSlug)}`}><PlayCircle size={15} /> Suivre le cours</Link> : <Link className="button button-dark button-small" href={`/contenu/${encodeURIComponent(order.id)}`}>{order.productKind === "physical" ? <Package size={15} /> : <BookOpenText size={15} />} {order.productKind === "membership" ? "Espace membre" : "Voir le reçu"}</Link>}
+            <ContactSellerButton orderId={order.id} sellerId={product?.creatorId} remote={order.isRemote ?? false}/>
           </article>
         );
       })}</div> : <div className="empty-state library-empty"><BookOpenText size={30} /><h2>Votre bibliothèque est encore vide</h2><p>{remoteAccount ? "Choisissez un produit dans le catalogue. Votre commande apparaîtra ici après confirmation du paiement." : "Essayez un achat simulé pour découvrir les contenus et les ressources de la bibliothèque."}</p><Link className="button button-dark" href="/#decouvrir">Explorer les produits <ArrowRight size={16} /></Link></div>}

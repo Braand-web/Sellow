@@ -11,6 +11,7 @@ import { kindLabels } from "@/lib/types";
 import type { ProductContent } from "@/lib/types";
 import { RichTextContent } from "@/components/rich-text-content";
 import { MobilePurchaseBar } from "@/components/mobile-purchase-bar";
+import { ContactSellerButton } from "@/components/contact-seller-button";
 
 export function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -75,6 +76,7 @@ export function ProductPage() {
               <div><Link href={`/createurs/${product.creatorSlug}`}>{product.creatorName}</Link><p>Créateur indépendant</p></div>
               <Link className="creator-arrow" href={`/createurs/${product.creatorSlug}`} aria-label={`Voir la boutique de ${product.creatorName}`}><ArrowLeft size={17} /></Link>
             </div>
+            <ContactSellerButton productId={product.id} sellerId={product.creatorId} remote={product.isRemote ?? false}/>
           </div>
         </aside>
         <div className="detail-main">

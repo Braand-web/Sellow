@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, ShieldCheck } from "@phosphor-icons/react";
 import { useMarketplace } from "@/app/providers";
 import { EmailAccessForm } from "@/components/email-access-form";
+import { ContactSellerButton } from "@/components/contact-seller-button";
 import { ProductCover } from "@/components/product-cover";
 import { formatPrice } from "@/components/product-card";
 import { checkoutConfirmation, membershipCopy, paymentCopy, publicErrorMessage } from "@/lib/copy.mjs";
@@ -132,6 +133,7 @@ export function CheckoutPage({ guestCheckoutEnabled = false, emailOtpEnabled = f
           {completedOrder.isRemote && <Link className="button button-dark" href={completedOrder.productKind === "download" ? `/api/files/${encodeURIComponent(completedOrder.id)}` : completedOrder.productKind === "course" ? `/apprendre/${encodeURIComponent(completedOrder.productSlug)}` : `/contenu/${encodeURIComponent(completedOrder.id)}`}>{completedOrder.productKind === "download" ? "Télécharger mes fichiers" : completedOrder.productKind === "course" ? "Commencer le cours" : completedOrder.productKind === "membership" ? "Ouvrir mon espace membre" : "Voir ma commande"}<ArrowRight size={17} /></Link>}
           <Link className={completedOrder.isRemote ? "text-link" : "button button-dark"} href={completedOrder.isRemote ? "/bibliotheque" : `/bibliotheque?email=${encodeURIComponent(completedOrder.buyerEmail)}`}>Ouvrir ma bibliothèque <ArrowRight size={17} /></Link>
         </>}
+        {!needsVerification && <ContactSellerButton orderId={completedOrder.id} sellerId={product?.creatorId} remote={completedOrder.isRemote ?? false}/>}
         {demoOrder && <div className="demo-note"><ShieldCheck size={17} /><span>Ce site est une démonstration. Aucun débit, abonnement ou versement n’a lieu.</span></div>}
       </div>
     );

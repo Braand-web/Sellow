@@ -9,7 +9,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { seedProducts } from "@/lib/seed";
+import { seedCreators, seedProducts } from "@/lib/seed";
+import { localAccounts, rememberLocalAccount } from "@/lib/local-messaging";
 import { paymentProvider } from "@/lib/payment/provider";
 import { slugify } from "@/lib/slug";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -371,6 +372,7 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         tone: "rose",
         isDemo: true,
       };
+      rememberLocalAccount(nextUser);
       setUser(nextUser);
       return {};
     },
@@ -390,7 +392,9 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
       }
       const name = email.trim().split("@")[0].replace(/[._-]/g, " ");
       const titleName = name.replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Créateur";
-      setUser({
+      const known = localAccounts().find((account) => account.email === email.trim().toLowerCase())
+        ?? seedCreators.find((account) => account.email === email.trim().toLowerCase());
+      const nextUser: DemoUser = {
         id: `demo-${slugify(email)}`,
         name: titleName,
         slug: `${slugify(titleName) || "createur"}-demo`,
@@ -399,7 +403,10 @@ export function MarketplaceProvider({ children }: { children: ReactNode }) {
         initials: titleName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2),
         tone: "rose",
         isDemo: true,
-      });
+        ...(known ?? {}),
+      };
+      rememberLocalAccount(nextUser);
+      setUser(nextUser);
       return {};
     },
     [refreshRemoteOrders, supabase],

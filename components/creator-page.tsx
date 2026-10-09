@@ -6,6 +6,7 @@ import { ArrowRight, Storefront } from "@phosphor-icons/react";
 import { useMarketplace } from "@/app/providers";
 import { ProductCard } from "@/components/product-card";
 import { seedCreators } from "@/lib/seed";
+import { ContactSellerButton } from "@/components/contact-seller-button";
 
 export function CreatorPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -37,6 +38,7 @@ export function CreatorPage() {
           <div><p className="page-eyebrow"><Storefront size={14} /> Boutique indépendante</p><h1>{creator.name}</h1><p>{creator.bio}</p></div>
         </div>
         {user?.slug === creator.slug && <Link className="button button-dark button-small" href="/studio">Gérer ma boutique <ArrowRight size={15} /></Link>}
+        {creatorProducts.length > 0 && <ContactSellerButton sellerId={creator.id} remote={creatorProducts.some(p=>p.isRemote)}/>}
       </section>
       <section className="creator-products">
         <div className="section-heading"><div><p className="page-eyebrow">La boutique</p><h2>Les créations de {creator.name.split(" ")[0]}</h2><p>{creatorProducts.length} produit{creatorProducts.length > 1 ? "s" : ""} disponible{creatorProducts.length > 1 ? "s" : ""}</p></div></div>
