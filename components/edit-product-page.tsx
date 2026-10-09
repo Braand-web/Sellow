@@ -11,6 +11,7 @@ import { emptyProductContent, hasPublishableContent } from "@/lib/product-conten
 import { ProductContentEditor } from "@/components/product-content-editor";
 import { ProductFilesEditor } from "@/components/product-files-editor";
 import { ProductSaleOptions } from "@/components/product-sale-options";
+import { ProductImageGuidelines } from "@/components/product-image-guidelines";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { documentFromPlainText, richTextToPlainText, type RichTextDocument } from "@/lib/rich-text";
 
@@ -127,7 +128,7 @@ export function EditProductPage() {
           <div className="form-panel"><h2>Options de vente</h2><ProductSaleOptions price={price} compareAtPrice={compareAtPrice} saveForLaterEnabled={saveForLaterEnabled} currency={currency} onCompareAtPriceChange={setCompareAtPrice} onSaveForLaterChange={setSaveForLaterEnabled} /></div>
           {(product.kind === "course" || product.kind === "membership") && <ProductContentEditor kind={product.kind} value={content} products={products} creatorId={user.id} productId={product.id} localContent={!supabaseConfigured || user.isDemo} files={contentFiles} onChange={setContent} onFilesChange={setContentFiles} />}
         </section>
-        <aside className="new-product-aside"><div className="demo-note"><span /> Enregistrez vos modifications pour mettre à jour la fiche et les contenus de votre produit.</div>{!contentReady && <p className="field-help" role="status">Chargement du contenu privé…</p>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-dark publish-button" type="submit" disabled={busy || !contentReady}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button><Link className="text-link cancel-link" href="/studio">Annuler</Link></aside>
+        <aside className="new-product-aside"><ProductImageGuidelines /><div className="demo-note"><span /> Enregistrez vos modifications pour mettre à jour la fiche et les contenus de votre produit.</div>{!contentReady && <p className="field-help" role="status">Chargement du contenu privé…</p>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-dark publish-button" type="submit" disabled={busy || !contentReady}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button><Link className="text-link cancel-link" href="/studio">Annuler</Link></aside>
       </form>
     </div>
   );

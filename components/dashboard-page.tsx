@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeSlash, PencilSimple, Plus, SignOut, Trash } from "@phosphor-icons/react";
 import { useMarketplace } from "@/app/providers";
 import { ProductCover } from "@/components/product-cover";
+import { ProductImageGuidelines } from "@/components/product-image-guidelines";
 import { formatPrice } from "@/components/product-card";
 import { kindLabels } from "@/lib/types";
 
@@ -52,6 +53,7 @@ export function DashboardPage() {
         <div className="stat-card"><span>{process.env.NEXT_PUBLIC_PAYMENT_MODE === "saspay" ? "Ventes confirmées" : "Commandes terminées"}</span><strong>{myOrders.length}</strong></div>
         <Link className="stat-card stat-card-link" href="/studio/retraits"><span>Revenus et retraits</span><strong>Consulter <ArrowRight size={15} /></strong></Link>
       </div>
+      <ProductImageGuidelines />
       <div className="section-heading"><div><p className="page-eyebrow">Votre catalogue</p><h2>Produits</h2></div>{myProducts.length > 0 && <span className="results-count">{myProducts.length} produit{myProducts.length > 1 ? "s" : ""}</span>}</div>
       {myProducts.length ? <div className="dashboard-list">{myProducts.map((product) => (
         <article className="dashboard-row" key={product.id}>
