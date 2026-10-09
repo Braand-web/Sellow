@@ -164,7 +164,7 @@ export function NewProductPage() {
             <p className="page-eyebrow">Aperçu de la fiche</p>
             <div className={`preview-cover cover-${coverForKind(kind)}${coverImage ? " preview-cover-with-image" : ""}`}>
               {coverImage && <Image src={coverImage} alt="" fill unoptimized className="preview-cover-image" />}
-              <span>{kindLabels[kind]}</span><strong>{title || "Votre création"}</strong>
+              {!coverImage && <><span>{kindLabels[kind]}</span><strong>{title || "Votre création"}</strong></>}
             </div>
             <h3>{title || "Nom du produit"}</h3><p>{subtitle || "Votre phrase de présentation apparaîtra ici."}</p>
             {compareAtPrice && Number(compareAtPrice) > Number(price) && <s className="compare-at-price">{formatPrice(Number(compareAtPrice), currency)}</s>}
