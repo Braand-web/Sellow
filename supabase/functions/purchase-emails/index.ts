@@ -13,6 +13,24 @@ Deno.serve(async (request: Request) => {
   if (!sameSecret(request.headers.get("x-worker-secret") ?? "", Deno.env.get("EMAIL_WORKER_SECRET") ?? "")) return new Response(null, { status: 403 });
   const apiKey = Deno.env.get("RESEND_API_KEY");
   if (!apiKey) return new Response(null, { status: 503 });
+  const body = await request.json().catch(() => null) as { action?: string; testId?: string } | null;
+  // A protected delivery probe checks the receipt sender without inventing a
+  // purchase or sending a receipt to a customer. The destination is fixed.
+  if (body?.action === "check-delivery") {
+    if (!body.testId || !/^[0-9a-f-]{36}$/i.test(body.testId)) return new Response(null, { status: 400 });
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST", signal: AbortSignal.timeout(15000),
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "Idempotency-Key": `sellow-email-check/${body.testId}` },
+        body: JSON.stringify({ from: Deno.env.get("RESEND_RECEIPT_FROM") ?? "Sellow <achats@notifications.sellow.fun>", to: ["delivered@resend.dev"], subject: "Test de livraison des reçus Sellow", text: "Ce message vérifie la configuration des e-mails Sellow. Il ne correspond à aucun achat." }),
+      });
+      const payload = await response.json().catch(() => null);
+      const ready = response.ok && typeof payload?.id === "string";
+      return Response.json({ ready, deliveryStatus: response.status }, { status: ready ? 200 : 502 });
+    } catch {
+      return Response.json({ ready: false }, { status: 502 });
+    }
+  }
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false, autoRefreshToken: false } });
   const now = new Date().toISOString();
   await admin.from("sellow_rate_limits").delete().lt("expires_at", now);
