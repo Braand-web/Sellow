@@ -46,7 +46,17 @@ for (const [name, width, height] of [["ordinateur",1440,1000],["mobile",390,844]
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/checkout\/le-plan-500k-afrique/);
     await expect(page.locator(".checkout-total")).toHaveText(/Montant5\s*000 FCFA/);
-    await expect(page.getByRole("heading",{name:"Connectez-vous pour continuer"})).toBeVisible();
+    await expect(page.getByRole("heading",{name:"Finalisez votre achat"})).toBeVisible();
+    await expect(page.getByRole("heading",{name:"Connectez-vous pour continuer"})).toHaveCount(0);
+    const email = page.getByLabel("Adresse e mail",{exact:true});
+    await expect(email).toBeVisible();
+    await expect(email).toBeEditable();
+    await expect(page.getByRole("link",{name:"Déjà client ? Se connecter"})).toBeVisible();
+    await expect(page.getByRole("button",{name:"Continuer vers le paiement"})).toBeVisible();
+    await email.focus();
+    await expect(email).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({path:testInfo.outputPath(`checkout-invite-${name}.png`),fullPage:true});
   });
 }
 
@@ -59,13 +69,34 @@ test("aucun bouton d’achat réel sur une fiche de démonstration", async ({pag
   await expect(page.locator(".mobile-purchase-bar")).toHaveCount(0);
 });
 
-test("les fichiers privés et le checkout refusent une session absente en production", async ({request}) => {
+test("les fichiers privés refusent les visiteurs et le checkout invité exige une adresse valide", async ({request}) => {
   const files = await request.get("/api/products/9ca287cd-db6d-42ed-8057-42ae6ff84d99/files");
   expect(files.status()).toBe(401);
   const save = await request.put("/api/products/9ca287cd-db6d-42ed-8057-42ae6ff84d99/files",{data:{files:[]}});
   expect(save.status()).toBe(401);
   const download = await request.get("/api/files/00000000-0000-4000-8000-000000000001?fileId=00000000-0000-4000-8000-000000000001");
   expect(download.status()).toBe(401);
-  const checkout = await request.post("/api/checkout",{data:{slug:"le-plan-500k-afrique",buyerEmail:"guest@example.test",idempotencyKey:"00000000-0000-4000-8000-000000000001"}});
-  expect(checkout.status()).toBe(401);
+  for (const buyerEmail of [undefined,"adresse-invalide"]) {
+    const checkout = await request.post("/api/checkout",{data:{slug:"le-plan-500k-afrique",buyerEmail,idempotencyKey:"00000000-0000-4000-8000-000000000001"}});
+    expect(checkout.status()).toBe(400);
+    const body = await checkout.json();
+    expect(body.checkoutUrl).toBeUndefined();
+    expect(body.order).toBeUndefined();
+  }
 });
+
+for (const [name,width,height] of [["ordinateur",1440,1000],["mobile",390,844]] as const) {
+  test(`récupération des achats par code disponible sur ${name}`, async ({page},testInfo) => {
+    await page.setViewportSize({width,height});
+    await page.goto("/achats/retrouver");
+    await expect(page.getByRole("heading",{name:"Retrouvez vos achats"})).toBeVisible();
+    const email = page.getByLabel("Adresse e-mail de l’achat",{exact:true});
+    await expect(email).toBeEditable();
+    await expect(page.getByRole("button",{name:"Recevoir mon code"})).toBeEnabled();
+    await expect(page.getByRole("link",{name:"Utiliser mon mot de passe"})).toBeVisible();
+    await email.focus();
+    await expect(email).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({path:testInfo.outputPath(`recuperation-${name}.png`),fullPage:true});
+  });
+}
